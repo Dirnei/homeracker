@@ -9,27 +9,37 @@ function keyOf<T extends string>(codes: Record<T, string>, code: string): T | nu
   return entry ? entry[0] : null;
 }
 
-export function encodeConfig(config: RackConfig): string {
-  const params = new URLSearchParams();
-  params.set("v", "1");
-  params.set("w", String(config.width));
-  params.set("d", String(config.depth));
-  params.set("h", String(config.height));
-  if (config.levels.length > 0) params.set("l", config.levels.join("."));
-  params.set("f", config.feet ? "1" : "0");
-  params.set("p", POST_CODE[config.posts]);
-  const panels = FACES.filter((f) => config.panels[f]).map((f) => `${f}.${PANEL_CODE[config.panels[f]!]}`);
-  if (panels.length > 0) params.set("pn", panels.join("_"));
-  return params.toString();
+/** Minimal query codec so the engine stays free of DOM globals like URLSearchParams. */
+function parseQuery(query: string): Map<string, string> {
+  const params = new Map<string, string>();
+  for (const pair of query.split("&").filter(Boolean)) {
+    const [key, value = ""] = pair.split("=");
+    if (key) params.set(decodeURIComponent(key), decodeURIComponent(value));
+  }
+  return params;
 }
 
-function integer(value: string | null): number | null {
-  if (value === null || !/^\d+$/.test(value)) return null;
+export function encodeConfig(config: RackConfig): string {
+  const params: [string, string][] = [
+    ["v", "1"],
+    ["w", String(config.width)],
+    ["d", String(config.depth)],
+    ["h", String(config.height)],
+  ];
+  if (config.levels.length > 0) params.push(["l", config.levels.join(".")]);
+  params.push(["f", config.feet ? "1" : "0"], ["p", POST_CODE[config.posts]]);
+  const panels = FACES.filter((f) => config.panels[f]).map((f) => `${f}.${PANEL_CODE[config.panels[f]!]}`);
+  if (panels.length > 0) params.push(["pn", panels.join("_")]);
+  return params.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+}
+
+function integer(value: string | undefined): number | null {
+  if (value === undefined || !/^\d+$/.test(value)) return null;
   return Number(value);
 }
 
 export function decodeConfig(hash: string): RackConfig | null {
-  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  const params = parseQuery(hash.replace(/^#/, ""));
   if (params.get("v") !== "1") return null;
   const width = integer(params.get("w"));
   const depth = integer(params.get("d"));
@@ -38,7 +48,7 @@ export function decodeConfig(hash: string): RackConfig | null {
   if (width === null || depth === null || height === null || posts === null) return null;
 
   const levelsRaw = params.get("l");
-  const levels = levelsRaw ? levelsRaw.split(".").map(integer) : [];
+  const levels: (number | null)[] = levelsRaw ? levelsRaw.split(".").map((z) => integer(z)) : [];
   if (levels.some((z) => z === null)) return null;
 
   const panels: RackConfig["panels"] = {};
