@@ -36,3 +36,8 @@ __pycache__/
 *.py[cod]
 cmd/scadm/dist/
 cmd/scadm/*.egg-info/
+
+# Web configurator (Vite)
+configurator/node_modules/
+configurator/dist/
+_site/
