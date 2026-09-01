@@ -1,4 +1,5 @@
 import { latticeCoords } from "./lattice";
+import { buildPanels } from "./panels";
 import type { Axis, Dir, RackConfig, RackModel, RackNode, RackSupport, Vec3 } from "./types";
 
 const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
@@ -82,7 +83,7 @@ export function buildModel(config: RackConfig): RackModel {
     config,
     nodes: [...nodes.values()],
     supports,
-    panels: [],
+    panels: buildPanels(config),
     extent: [(xs.at(-1) ?? 0) + 1, (ys.at(-1) ?? 0) + 1, (zs.at(-1) ?? 0) + 1],
   };
 }
