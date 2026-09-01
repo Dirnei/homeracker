@@ -1,6 +1,10 @@
 import "./style.css";
+import { defaultConfig } from "./engine/defaults";
+import { buildModel } from "./engine/model";
+import { createViewer } from "./render/scene";
 
-const app = document.querySelector<HTMLDivElement>("#app");
-if (app) {
-  app.textContent = "HomeRacker Configurator";
+const canvas = document.querySelector<HTMLCanvasElement>("#viewer");
+if (canvas) {
+  const viewer = createViewer(canvas);
+  viewer.show(buildModel(defaultConfig()));
 }
