@@ -32,7 +32,7 @@ Astro caches rendered markdown in `.astro/`. After changing the rehype transform
 | `src/lib/catalog.ts` | Builds catalog cards from `models/README.md` |
 | `src/lib/hero.ts` | Home page hero: the exploded 3D3W cube (8 connectors, 12 supports, 24 lock pins) built from real part meshes, assembling and coming apart in a loop; still exploded view under reduced motion |
 | `src/lib/rack.ts` | Fallback hero when no part meshes are present: the default configurator rack as schematic boxes |
-| `scripts/export-parts.mjs` | Exports the part library with OpenSCAD into `public/parts/` (gitignored): every connector type and pull-through variant, supports from 1 to 50 units, the lock pin, the foot, and the panel kit (support mount plates for 3 to 16 units and corner brackets, both panel types) from `scripts/scad/panel_kit.scad`. Used by the hero and by the configurator preview |
+| `scripts/export-parts.mjs` | Exports the part library with OpenSCAD into `public/parts/` (gitignored): every connector type and pull-through variant, supports from 1 to 50 units, the lock pin, the foot, and the panel kit (support mount plates for 3 to 50 units and corner brackets, both panel types) from `scripts/scad/panel_kit.scad`. Used by the hero and by the configurator preview |
 | `src/pages/` | `index.astro` (README), `models/index.astro` (catalog), `models/[slug].astro` (model pages), `configurator.astro` (mounts the configurator app) |
 | `src/styles/global.css` | Design tokens, the type system from [docs/styleguide.md](../docs/styleguide.md) (Orbitron Black for headings, Source Code Pro for everything else) and markdown styling |
 

@@ -102,7 +102,7 @@ function diagramView(diagram: Diagram, config: RackConfig): HTMLElement {
     const state = panelAt(config, cell.opening) ?? "open";
     const label = openingLabel(cell.opening, config.rows.length);
     const size = `${cell.opening.length}x${cell.opening.height} units`;
-    const text = closable ? `${label}: ${size}, ${TYPE_LABEL[state]}` : `${label}: ${size}, no panel fits (2 to 16 units per side)`;
+    const text = closable ? `${label}: ${size}, ${TYPE_LABEL[state]}` : `${label}: ${size}, no panel fits (2 to 50 units per side)`;
     const rect = document.createElementNS(SVG, "rect");
     rect.setAttribute("x", String(cell.x));
     rect.setAttribute("y", String(cell.y));

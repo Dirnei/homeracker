@@ -190,7 +190,18 @@ function panelMesh(panel: RackPanel, library: PartLibrary, material: MeshStandar
   group.add(plate);
 
   const pending: Promise<void>[] = [];
-  const add = (name: string, x: number, y: number, z: number, spin: number, mirrorX = false) => {
+  const add = (name: string, x: number, y: number, z: number, spin: number, mirrorX = false, fallback?: [number, number, number]) => {
+    if (!library.has(name)) {
+      // Library without this piece (older export): keep the panel complete with a plain block of the same size.
+      if (fallback) {
+        const block = new Mesh(unitBoxGeometry, material);
+        block.position.set(x, y, z);
+        block.rotation.z = spin;
+        block.scale.set(...fallback);
+        group.add(block);
+      }
+      return;
+    }
     pending.push(
       library.geometry(name).then((geometry) => {
         const mesh = new Mesh(geometry, material);
@@ -207,13 +218,15 @@ function panelMesh(panel: RackPanel, library: PartLibrary, material: MeshStandar
   const inset = MOUNT_PLATE_WIDTH / 2;
   if (Hu > 2) {
     const name = `panel-mount-${code}-${Hu}`;
-    add(name, -Lu / 2 + inset, 0, mountCenterZ, 0);
-    add(name, Lu / 2 - inset, 0, mountCenterZ, 0, true);
+    const block: [number, number, number] = [MOUNT_PLATE_WIDTH, Hu - 2, PLATE + mountHeight];
+    add(name, -Lu / 2 + inset, 0, mountCenterZ, 0, false, block);
+    add(name, Lu / 2 - inset, 0, mountCenterZ, 0, true, block);
   }
   if (Lu > 2) {
     const name = `panel-mount-${code}-${Lu}`;
-    add(name, 0, Hu / 2 - inset, mountCenterZ, -Math.PI / 2);
-    add(name, 0, -Hu / 2 + inset, mountCenterZ, Math.PI / 2);
+    const block: [number, number, number] = [MOUNT_PLATE_WIDTH, Lu - 2, PLATE + mountHeight];
+    add(name, 0, Hu / 2 - inset, mountCenterZ, -Math.PI / 2, false, block);
+    add(name, 0, -Hu / 2 + inset, mountCenterZ, Math.PI / 2, false, block);
   }
 
   // Corner brackets on top of the plate, spun like panel() spins them.
@@ -221,10 +234,11 @@ function panelMesh(panel: RackPanel, library: PartLibrary, material: MeshStandar
   const cx = plateWidth / 2 - CORNER_MOUNT / 2;
   const cy = plateDepth / 2 - CORNER_MOUNT / 2;
   const corner = `panel-corner-${code}`;
-  add(corner, -cx, cy, cornerZ, 0);
-  add(corner, -cx, -cy, cornerZ, Math.PI / 2);
-  add(corner, cx, -cy, cornerZ, Math.PI);
-  add(corner, cx, cy, cornerZ, (3 * Math.PI) / 2);
+  const cornerBlock: [number, number, number] = [CORNER_MOUNT, CORNER_MOUNT, mountHeight];
+  add(corner, -cx, cy, cornerZ, 0, false, cornerBlock);
+  add(corner, -cx, -cy, cornerZ, Math.PI / 2, false, cornerBlock);
+  add(corner, cx, -cy, cornerZ, Math.PI, false, cornerBlock);
+  add(corner, cx, cy, cornerZ, (3 * Math.PI) / 2, false, cornerBlock);
 
   return Promise.all(pending).then(() => group);
 }

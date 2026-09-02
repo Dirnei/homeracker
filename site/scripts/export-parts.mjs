@@ -50,7 +50,7 @@ function parts() {
   const kit = "site/scripts/scad/panel_kit.scad";
   for (const [code, type] of [["i", 1], ["f", 2]]) {
     list.push({ name: `panel-corner-${code}`, file: kit, defines: ['part="mount_corner"', `panel_type=${type}`] });
-    for (let units = 3; units <= 16; units++) {
+    for (let units = 3; units <= MAX_SUPPORT; units++) {
       list.push({ name: `panel-mount-${code}-${units}`, file: kit, defines: ['part="mount_plate"', `panel_type=${type}`, `units=${units}`] });
     }
   }

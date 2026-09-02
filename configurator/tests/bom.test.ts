@@ -81,6 +81,14 @@ describe("computeBom panels", () => {
   });
 });
 
+describe("computeBom oversize panels", () => {
+  test("flags panels beyond the Customizer slider range", () => {
+    const wide = bomOf(closeFace({ ...exampleA, rows: [{ height: 5, columns: [20], shift: 0 }] }, "front", "interfit"));
+    expect(wide.lines.find((l) => l.key === "panel:20x5:interfit")?.note).toMatch(/Customizer slider \(16\)/);
+    expect(bomOf(closeFace(exampleA, "front", "interfit")).lines.find((l) => l.kind === "panel")?.note).toBeUndefined();
+  });
+});
+
 describe("computeBom shape", () => {
   test("orders lines by kind and supports by length descending", () => {
     const bom = bomOf(closeFace(exampleA, "top", "interfit"));

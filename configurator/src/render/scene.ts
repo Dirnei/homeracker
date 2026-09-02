@@ -44,20 +44,22 @@ function openingPlane(opening: Opening): Mesh {
   const [ox, oy, oz] = opening.origin;
   const axis = opening.normal[1];
   const sign = opening.normal[0] === "+" ? 1 : -1;
-  // The plane sits on the outer face of the bounding node cells, spanning the opening plus half a node each side.
-  const span = opening.length + 1;
-  const rise = opening.height + 1;
+  // The plane sits on the outer face of the supports and stays a little smaller than the opening it fills.
+  const inset = 0.3;
+  const span = opening.length - inset;
+  const rise = opening.height - inset;
   if (axis === "y") {
-    mesh.position.set(ox + 0.5 + opening.length / 2 + 0.5, sign > 0 ? oy + 1 : oy, oz + 0.5 + opening.height / 2 + 0.5);
+    mesh.position.set(ox + 1 + opening.length / 2, sign > 0 ? oy + 1 : oy, oz + 1 + opening.height / 2);
     mesh.rotation.x = Math.PI / 2;
     mesh.scale.set(span, rise, 1);
   } else if (axis === "x") {
-    mesh.position.set(sign > 0 ? ox + 1 : ox, oy + 0.5 + opening.length / 2 + 0.5, oz + 0.5 + opening.height / 2 + 0.5);
+    mesh.position.set(sign > 0 ? ox + 1 : ox, oy + 1 + opening.length / 2, oz + 1 + opening.height / 2);
+    // Euler XYZ: local x -> world y (the length), local y -> world z (the height).
     mesh.rotation.y = Math.PI / 2;
     mesh.rotation.z = Math.PI / 2;
-    mesh.scale.set(rise, span, 1);
+    mesh.scale.set(span, rise, 1);
   } else {
-    mesh.position.set(ox + 0.5 + opening.length / 2 + 0.5, oy + 0.5 + opening.height / 2 + 0.5, sign > 0 ? oz + 1 : oz);
+    mesh.position.set(ox + 1 + opening.length / 2, oy + 1 + opening.height / 2, sign > 0 ? oz + 1 : oz);
     mesh.scale.set(span, rise, 1);
   }
   mesh.userData.opening = opening;

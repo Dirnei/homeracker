@@ -1,5 +1,5 @@
 import { classifyConnector, connectorLabel } from "./connector";
-import { BASE_UNIT } from "./constants";
+import { BASE_UNIT, LIMITS } from "./constants";
 import { panelPins } from "./panels";
 import type { Bom, BomLine, RackModel } from "./types";
 
@@ -47,10 +47,12 @@ export function computeBom(model: RackModel): Bom {
     const pins = panelPins(p.unitsX, p.unitsY);
     panelPinsStandard += pins.standard;
     panelPinsExtended += pins.extended;
+    const oversize = Math.max(p.unitsX, p.unitsY) > LIMITS.panelCustomizer;
     add(lines, {
       kind: "panel",
       key: `panel:${p.unitsX}x${p.unitsY}:${p.type}`,
       label: `Panel ${p.unitsX}x${p.unitsY} units ${PANEL_TYPE_LABEL[p.type]}`,
+      ...(oversize ? { note: `beyond the Customizer slider (${LIMITS.panelCustomizer}); type the units in or print split` } : {}),
       scad: { part: "panel/panel", params: { panel_type: PANEL_TYPE_PARAM[p.type], units_x: p.unitsX, units_y: p.unitsY } },
     });
   }

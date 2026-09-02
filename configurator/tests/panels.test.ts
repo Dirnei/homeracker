@@ -83,7 +83,7 @@ describe("closeFace and togglePanel", () => {
     const config = { ...twoColumns, rows: [twoColumns.rows[0]!, { height: 4, columns: [6], shift: 0 }] };
     // The shelf frame has spans of 4, 1 and 2 units; the 1-unit span cannot take a panel.
     expect(closeFace(config, "shelves", "interfit").panels.map((p) => p.index)).toEqual([0, 2]);
-    expect(closeFace({ ...twoColumns, rows: [{ height: 5, columns: [17], shift: 0 }] }, "front", "interfit").panels).toEqual([]);
+    expect(closeFace({ ...twoColumns, rows: [{ height: 5, columns: [51], shift: 0 }] }, "front", "interfit").panels).toEqual([]);
   });
 
   test("closeFace with null opens the face and keeps other panels", () => {

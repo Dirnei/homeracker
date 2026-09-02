@@ -40,18 +40,19 @@ describe("validate", () => {
     expect(issue?.message).toMatch(/row 2/i);
   });
 
-  test("limits closed openings to 2..16 units (specs can still arrive from a link)", () => {
+  test("limits closed openings to 2..50 units (specs can still arrive from a link)", () => {
     const front: PanelSpec = { face: "front", at: 0, index: 0, type: "interfit" };
     const top: PanelSpec = { face: "horizontal", at: 1, index: 0, type: "fullcover" };
     const left: PanelSpec = { face: "left", at: 0, index: 0, type: "interfit" };
-    expect(fields(cfg({ rows: rows([5, [17]]), panels: [front] }))).toEqual(["panels"]);
+    expect(fields(cfg({ rows: rows([5, [50]]), panels: [front] }))).toEqual([]);
+    expect(fields(cfg({ rows: rows([5, [1]]), panels: [front] }))).toEqual(["panels"]);
     expect(fields(cfg({ rows: rows([5, [1]]), panels: [top] }))).toEqual(["panels"]);
     expect(fields(cfg({ rows: rows([1, [6]]), panels: [left] }))).toEqual(["panels"]);
-    expect(validate(closeFace(cfg({ rows: rows([5, [17]]) }), "left", "interfit"))).toEqual([]);
+    expect(validate(closeFace(cfg({ rows: rows([5, [1]]) }), "left", "interfit"))).toEqual([]);
   });
 
   test("names the opening in a panel issue", () => {
-    const [issue] = validate(cfg({ rows: rows([5, [17, 3]]), panels: [{ face: "back", at: 0, index: 0, type: "fullcover" }] }));
+    const [issue] = validate(cfg({ rows: rows([5, [1, 3]]), panels: [{ face: "back", at: 0, index: 0, type: "fullcover" }] }));
     expect(issue?.message).toMatch(/back.*row 1.*bay 1/i);
   });
 
