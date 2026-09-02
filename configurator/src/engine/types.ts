@@ -5,15 +5,21 @@ export type PanelType = "interfit" | "fullcover";
 export type PostMode = "segmented" | "continuous";
 export type Vec3 = readonly [number, number, number];
 
-export interface RackConfig {
-  /** Length of the x supports in units. */
-  width: number;
-  /** Length of the y supports in units. */
-  depth: number;
-  /** Length of a continuous corner post in units. */
+/** One row of the rack: a band of bays between two frames. */
+export interface RackRow {
+  /** Length of the vertical supports in this row, in units. */
   height: number;
-  /** z coordinates of intermediate connector rows, strictly increasing. */
-  levels: number[];
+  /** Width of each bay in units, left to right. Dividers between bays are one unit (a connector core). */
+  columns: number[];
+  /** How many units the row starts to the right of x = 0. */
+  shift: number;
+}
+
+export interface RackConfig {
+  /** Length of the depth supports in units, shared by every row. */
+  depth: number;
+  /** Rows from bottom to top. At least one. */
+  rows: RackRow[];
   feet: boolean;
   posts: PostMode;
   panels: Partial<Record<Face, PanelType>>;
@@ -49,7 +55,7 @@ export interface RackPanel {
   type: PanelType;
   unitsX: number;
   unitsY: number;
-  /** Lattice corner (min x, y, z) of the covered bay including its bounding nodes. */
+  /** Lattice position (min x, y, z) of the node at the bay's near corner. */
   origin: Vec3;
   normal: Dir;
 }

@@ -50,6 +50,13 @@ describe("rackBoxes", () => {
     expect(ofKind(rackBoxes(buildModel({ ...exampleA, feet: false })), "foot")).toEqual([]);
   });
 
+  test("side panels on a stepped rack follow the edge of their own row", async () => {
+    const { stepped } = await import("./fixtures");
+    const model = buildModel({ ...stepped, panels: { right: "interfit" } });
+    const panels = ofKind(rackBoxes(model), "panel");
+    expect(panels.map((b) => b.center[0])).toEqual([9 - 0.075, 5 - 0.075]);
+  });
+
   test("inter-fit panels sit just inside the face, full cover just outside", () => {
     const model = buildModel({ ...exampleA, panels: { front: "interfit", top: "fullcover" } });
     const panels = ofKind(rackBoxes(model), "panel");

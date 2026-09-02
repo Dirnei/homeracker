@@ -1,5 +1,5 @@
-import { faceBays, latticeCoords } from "./lattice";
-import type { Dir, Face, RackConfig, RackPanel, Vec3 } from "./types";
+import { faceBays } from "./lattice";
+import type { Dir, Face, RackConfig, RackPanel } from "./types";
 
 /**
  * Panel units for a bay bounded by supports of `length` x `height` units.
@@ -24,30 +24,17 @@ export function panelPins(length: number, height: number): { standard: number; e
 const NORMALS: Record<Face, Dir> = { front: "-y", back: "+y", left: "-x", right: "+x", top: "+z", bottom: "-z" };
 
 export function buildPanels(config: RackConfig): RackPanel[] {
-  const { xs, ys, zs } = latticeCoords(config);
-  const maxX = xs.at(-1) ?? 0;
-  const maxY = ys.at(-1) ?? 0;
-  const maxZ = zs.at(-1) ?? 0;
   const panels: RackPanel[] = [];
   for (const face of Object.keys(NORMALS) as Face[]) {
     const type = config.panels[face];
     if (!type) continue;
     faceBays(config, face).forEach((bay, i) => {
-      const z0 = zs[i] ?? 0;
-      const origins: Record<Face, Vec3> = {
-        front: [0, 0, z0],
-        back: [0, maxY, z0],
-        left: [0, 0, z0],
-        right: [maxX, 0, z0],
-        top: [0, 0, maxZ],
-        bottom: [0, 0, 0],
-      };
       panels.push({
         id: `p:${face}:${i}`,
         face,
         type,
         ...panelSize(bay.length, bay.height),
-        origin: origins[face],
+        origin: bay.origin,
         normal: NORMALS[face],
       });
     });

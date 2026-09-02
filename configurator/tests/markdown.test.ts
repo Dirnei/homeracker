@@ -1,12 +1,21 @@
 import { describe, expect, test } from "vitest";
 import { computeBom } from "../src/engine/bom";
-import { bomToMarkdown } from "../src/engine/markdown";
+import { bomToMarkdown, describeConfig } from "../src/engine/markdown";
 import { buildModel } from "../src/engine/model";
-import { exampleA } from "./fixtures";
+import { exampleA, twoColumns } from "./fixtures";
+
+describe("describeConfig", () => {
+  test("lists rows top to bottom with their columns", () => {
+    expect(describeConfig(exampleA)).toBe(
+      "depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet; segmented posts",
+    );
+    expect(describeConfig(twoColumns)).toBe("depth 6 units; rows top to bottom: 4+4 wide x 5 high; feet; segmented posts");
+  });
+});
 
 describe("bomToMarkdown", () => {
   const config = { ...exampleA, panels: { top: "fullcover" as const } };
-  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=1");
+  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=2");
 
   test("starts with a heading and the outer size", () => {
     expect(md).toMatch(/^# HomeRacker parts list\n/);
@@ -14,7 +23,7 @@ describe("bomToMarkdown", () => {
   });
 
   test("summarises the config", () => {
-    expect(md).toContain("6 x 6 x 10 units, 1 level, feet, segmented posts");
+    expect(md).toContain("Rack: depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet; segmented posts");
   });
 
   test("lists one table row per line with quantities", () => {
@@ -30,6 +39,6 @@ describe("bomToMarkdown", () => {
   });
 
   test("ends with the share link", () => {
-    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=1\)$/);
+    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=2\)$/);
   });
 });

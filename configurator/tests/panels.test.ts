@@ -1,11 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
 import { panelPins, panelSize } from "../src/engine/panels";
-import { exampleA } from "./fixtures";
+import { exampleA, stepped, twoColumns } from "./fixtures";
 
 describe("panelSize", () => {
   test("a panel fills the opening bounded by the supports", () => {
-    // Inter-fit width is units_x * 15 - (2 * wall + tolerance), so units equal the opening.
     expect(panelSize(6, 5)).toEqual({ unitsX: 6, unitsY: 5 });
   });
 });
@@ -35,7 +34,15 @@ describe("buildModel panels", () => {
     expect(model.panels.every((p) => p.face === "front" && p.normal === "-y")).toBe(true);
   });
 
-  test("top and bottom get a single panel sized width by depth", () => {
+  test("columns get one front panel each", () => {
+    const model = buildModel({ ...twoColumns, panels: { front: "interfit" } });
+    expect(model.panels.map((p) => p.origin)).toEqual([
+      [0, 0, 0],
+      [5, 0, 0],
+    ]);
+  });
+
+  test("top and bottom get a panel per bay of the top and bottom row", () => {
     const model = buildModel({ ...exampleA, depth: 4, panels: { top: "fullcover", bottom: "interfit" } });
     expect(model.panels.map((p) => [p.face, p.unitsX, p.unitsY, p.normal])).toEqual([
       ["top", 6, 4, "+z"],
@@ -43,17 +50,12 @@ describe("buildModel panels", () => {
     ]);
   });
 
-  test("side panels record the bay origin for rendering", () => {
-    const model = buildModel({ ...exampleA, panels: { right: "interfit", left: "interfit" } });
-    const right = model.panels.filter((p) => p.face === "right");
-    expect(right.map((p) => p.origin)).toEqual([
-      [7, 0, 0],
-      [7, 0, 6],
+  test("side panels follow the edge of each row", () => {
+    const model = buildModel({ ...stepped, panels: { right: "interfit" } });
+    expect(model.panels.map((p) => p.origin)).toEqual([
+      [8, 0, 0],
+      [4, 0, 4],
     ]);
-    expect(right.every((p) => p.normal === "+x")).toBe(true);
-    expect(model.panels.filter((p) => p.face === "left").map((p) => p.origin)).toEqual([
-      [0, 0, 0],
-      [0, 0, 6],
-    ]);
+    expect(model.panels.every((p) => p.normal === "+x")).toBe(true);
   });
 });

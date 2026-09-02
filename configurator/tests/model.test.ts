@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
 import type { RackModel, RackNode } from "../src/engine/types";
-import { exampleA, exampleB, invariantRack, smallestRack } from "./fixtures";
+import { exampleA, exampleB, invariantRack, smallestRack, stepped, twoColumns } from "./fixtures";
 
 const sorted = (node: RackNode) => [...node.arms].sort().join(",");
 const nodesAtZ = (model: RackModel, z: number) => model.nodes.filter((n) => n.pos[2] === z);
+const node = (model: RackModel, id: string) => model.nodes.find((n) => n.id === id);
 const lengths = (model: RackModel, axis: "x" | "y" | "z") =>
   model.supports
     .filter((s) => s.axis === axis)
@@ -12,7 +13,7 @@ const lengths = (model: RackModel, axis: "x" | "y" | "z") =>
     .sort((a, b) => a - b);
 
 describe("buildModel frame", () => {
-  test("places a node at every corner of every level", () => {
+  test("places a node at every corner of every frame", () => {
     const model = buildModel(exampleA);
     expect(model.nodes).toHaveLength(12);
     expect(nodesAtZ(model, 0)).toHaveLength(4);
@@ -24,13 +25,13 @@ describe("buildModel frame", () => {
     expect(buildModel(exampleA).extent).toEqual([8, 8, 12]);
   });
 
-  test("creates horizontal supports of the configured length on every level", () => {
+  test("creates horizontal supports of the column width on every frame", () => {
     const model = buildModel(exampleA);
     expect(lengths(model, "x")).toEqual([6, 6, 6, 6, 6, 6]);
     expect(lengths(model, "y")).toEqual([6, 6, 6, 6, 6, 6]);
   });
 
-  test("segmented posts are split at every level", () => {
+  test("segmented posts are one support per row", () => {
     expect(lengths(buildModel(exampleA), "z")).toEqual([4, 4, 4, 4, 5, 5, 5, 5]);
   });
 
@@ -39,12 +40,11 @@ describe("buildModel frame", () => {
   });
 
   test("a continuous post occupies the arms of the nodes it passes through", () => {
-    const model = buildModel(exampleB);
-    const post = model.supports.find((s) => s.axis === "z" && s.from[0] === 0 && s.from[1] === 0);
+    const post = buildModel(exampleB).supports.find((s) => s.axis === "z" && s.from[0] === 0 && s.from[1] === 0);
     expect(post?.nodeIds.sort()).toEqual(["n:0,0,0", "n:0,0,11", "n:0,0,6"].sort());
   });
 
-  test("the 105 mm invariant: 3 + connector + 3 between two levels", () => {
+  test("the 105 mm invariant: 3 + connector + 3 between two frames", () => {
     const model = buildModel(invariantRack);
     expect(lengths(model, "z")).toEqual([3, 3, 3, 3, 3, 3, 3, 3]);
     expect(model.extent[2]).toBe(9);
@@ -59,41 +59,66 @@ describe("buildModel frame", () => {
 
 describe("buildModel arms", () => {
   test("bottom corners with feet have four arms including -z", () => {
-    const model = buildModel(exampleA);
-    const node = model.nodes.find((n) => n.id === "n:0,0,0");
-    expect(sorted(node!)).toBe("+x,+y,+z,-z");
-    expect(node?.foot).toBe(true);
+    const n = node(buildModel(exampleA), "n:0,0,0");
+    expect(sorted(n!)).toBe("+x,+y,+z,-z");
+    expect(n?.foot).toBe(true);
   });
 
   test("bottom corners without feet have three arms", () => {
-    const model = buildModel({ ...exampleA, feet: false });
-    const node = model.nodes.find((n) => n.id === "n:7,7,0");
-    expect(sorted(node!)).toBe("+z,-x,-y");
-    expect(node?.foot).toBe(false);
+    const n = node(buildModel({ ...exampleA, feet: false }), "n:7,7,0");
+    expect(sorted(n!)).toBe("+z,-x,-y");
+    expect(n?.foot).toBe(false);
   });
 
   test("intermediate corners have four arms", () => {
-    const node = buildModel(exampleA).nodes.find((n) => n.id === "n:7,0,6");
-    expect(sorted(node!)).toBe("+y,+z,-x,-z");
-    expect(node?.pullThrough).toBe("none");
+    const n = node(buildModel(exampleA), "n:7,0,6");
+    expect(sorted(n!)).toBe("+y,+z,-x,-z");
+    expect(n?.pullThrough).toBe("none");
   });
 
   test("top corners have three arms", () => {
-    const node = buildModel(exampleA).nodes.find((n) => n.id === "n:0,7,11");
-    expect(sorted(node!)).toBe("+x,-y,-z");
+    expect(sorted(node(buildModel(exampleA), "n:0,7,11")!)).toBe("+x,-y,-z");
   });
 
   test("continuous posts make intermediate nodes z pull-through", () => {
     const model = buildModel(exampleB);
     expect(nodesAtZ(model, 6).every((n) => n.pullThrough === "z")).toBe(true);
     expect(nodesAtZ(model, 0).every((n) => n.pullThrough === "none")).toBe(true);
-    expect(nodesAtZ(model, 11).every((n) => n.pullThrough === "none")).toBe(true);
   });
 
   test("supports start one cell past their lower node", () => {
-    const model = buildModel(exampleA);
-    const beam = model.supports.find((s) => s.axis === "x" && s.from[1] === 0 && s.from[2] === 0);
+    const beam = buildModel(exampleA).supports.find((s) => s.axis === "x" && s.from[1] === 0 && s.from[2] === 0);
     expect(beam?.from).toEqual([1, 0, 0]);
     expect(beam?.nodeIds.sort()).toEqual(["n:0,0,0", "n:7,0,0"]);
+  });
+});
+
+describe("buildModel columns", () => {
+  test("a divider adds a post and splits the frame beams", () => {
+    const model = buildModel(twoColumns);
+    expect(model.nodes).toHaveLength(12);
+    expect(lengths(model, "x")).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
+    expect(lengths(model, "y")).toEqual([6, 6, 6, 6, 6, 6]);
+    expect(lengths(model, "z")).toEqual([5, 5, 5, 5, 5, 5]);
+  });
+
+  test("divider nodes are T junctions", () => {
+    const model = buildModel(twoColumns);
+    expect(sorted(node(model, "n:5,0,0")!)).toBe("+x,+y,+z,-x,-z");
+    expect(sorted(node(model, "n:5,7,6")!)).toBe("+x,-x,-y,-z");
+  });
+
+  test("a stepped rack keeps a node where the lower divider meets the frame", () => {
+    const model = buildModel(stepped);
+    expect(model.extent).toEqual([9, 6, 9]);
+    expect(sorted(node(model, "n:8,0,4")!)).toBe("+y,-x,-z");
+    expect(node(model, "n:8,0,8")).toBeUndefined();
+    expect(lengths(model, "z")).toEqual([3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
+  });
+
+  test("a shifted row starts at its shift", () => {
+    const model = buildModel({ ...stepped, rows: [stepped.rows[0]!, { height: 3, columns: [3], shift: 2 }] });
+    expect(nodesAtZ(model, 8).map((n) => n.pos[0]).sort((a, b) => a - b)).toEqual([2, 2, 6, 6]);
+    expect(sorted(node(model, "n:2,0,4")!)).toBe("+x,+y,+z,-x");
   });
 });

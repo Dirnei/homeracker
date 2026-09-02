@@ -24,11 +24,11 @@ function cellCenter(pos: Vec3): Vec3 {
   return [pos[0] + 0.5, pos[1] + 0.5, pos[2] + 0.5];
 }
 
-function panelBox(panel: RackPanel, extent: Vec3): Box {
+function panelBox(panel: RackPanel): Box {
   const normal = dirVector(panel.normal);
   const axis = AXIS_INDEX[panel.normal[1] as Axis];
   const sign = normal[axis];
-  const plane = sign > 0 ? extent[axis] : 0;
+  const plane = sign > 0 ? panel.origin[axis] + 1 : panel.origin[axis];
   const offset = (panel.type === "interfit" ? -sign : sign) * (PANEL_THICKNESS / 2);
   const center: [number, number, number] = [0, 0, 0];
   const size: [number, number, number] = [0, 0, 0];
@@ -72,6 +72,6 @@ export function rackBoxes(model: RackModel): Box[] {
     }
   }
 
-  for (const p of model.panels) boxes.push(panelBox(p, model.extent));
+  for (const p of model.panels) boxes.push(panelBox(p));
   return boxes;
 }

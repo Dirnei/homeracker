@@ -33,6 +33,7 @@ A configurator needs a place to live, a toolchain, a way to publish, and a previ
 ### Geometry rules encoded
 
 - Nodes on an integer lattice; a support between nodes `a < b` has length `b - a - 1`, so `3 + connector + 3 = 7 units`.
+- A rack is a stack of rows, each with its own height, column widths and horizontal shift; frames between rows carry the column boundaries of both neighbouring rows, so dividers that stop end in T connectors (added 2026-09-02 after the level editor proved unintuitive).
 - Connector type = (axes used, arm count), matching `CONNECTOR_CONFIGS`. Continuous posts make intermediate nodes z pull-through.
 - One lock pin per occupied arm; feet occupy the `-z` arm of every floor node.
 - A panel fills the opening bounded by its supports (`units_x = support length`), derived from `panel.scad`'s inter-fit deduction. Panel pins are an estimate and listed separately.

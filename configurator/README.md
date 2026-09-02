@@ -2,7 +2,7 @@
 
 ## 📌 What
 
-Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack (width, depth, height, levels, feet, post mode, panels per face), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
+Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet, post mode and panels per face, preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
 
 ## 🤔 Why
 
@@ -32,12 +32,15 @@ npm run build    # static bundle in dist/, served under /configurator/
 ### Geometry rules
 
 - 1 unit = 15 mm (`BASE_UNIT`). Connector cores are 1 unit; a support between nodes `a < b` has length `b - a - 1`.
-- `width`/`depth` are the horizontal support lengths, `height` is the continuous post length, `levels` are the z positions of intermediate connector rows. Outer size is `(w+2) x (d+2) x (h+2)` units.
+- A rack is a stack of rows, bottom to top. Each row has a height (its vertical support length), a list of column widths (bay support lengths, left to right; each divider between bays is one unit of connector core) and a shift (units to the right of x = 0). Depth is shared.
+- Frames sit between rows and get a connector at every column boundary of the row below and the row above; beams are split there, so a divider that stops ends in a T connector. Vertical posts run at every column boundary of their own row. Rows can differ in width and position (stepped racks).
+- Outer size is the widest row by `depth + 2` by the sum of `height + 1` over rows, plus 1.
 - Connector type = (axes used, arm count) as in `CONNECTOR_CONFIGS`. Continuous posts make intermediate nodes z pull-through.
 - One lock pin per occupied arm. Feet plug into the `-z` arm of every floor node.
-- A panel fills the opening bounded by its supports: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
+- A panel fills the opening bounded by its supports: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Front and back get one panel per column per row, left and right one per row, top and bottom cover the bays of the top and bottom row (exposed roofs of wider lower rows are not panelled). Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
+- URL hash: `v=2&d=<depth>&r=<height>:<w>.<w>[~shift]_<row>...&f=<feet>&p=<s|c>&pn=<face>.<i|f>_...`. Version 1 links (single column, level positions) still open.
 
-Worked example (defaults): 6 x 6 x 10 units, one level at z=6, feet on, segmented posts gives 12 x 6u + 4 x 5u + 4 x 4u supports, 8 x 3D4W + 4 x 3D3W connectors, 44 lock pins, 4 feet.
+Worked example (defaults): depth 6, rows 5 and 4 high with one 6-unit column, feet on, segmented posts gives 12 x 6u + 4 x 5u + 4 x 4u supports, 8 x 3D4W + 4 x 3D3W connectors, 44 lock pins, 4 feet. Splitting the bottom row into two 4-unit columns adds a post, two T connectors (3D5W and 3D4W) and two feet.
 
 > ⚠️ The panel sizing rule is derived from the library source, not yet verified on a print. If a panel is off by one unit, fix `panelSize()` in `src/engine/panels.ts` and its test.
 

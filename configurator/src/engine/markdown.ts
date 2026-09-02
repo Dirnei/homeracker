@@ -1,9 +1,12 @@
 import type { Bom, RackConfig } from "./types";
 
 export function describeConfig(config: RackConfig): string {
-  const levels = `${config.levels.length} level${config.levels.length === 1 ? "" : "s"}`;
+  const rows = [...config.rows]
+    .reverse()
+    .map((row) => `${row.columns.join("+")} wide x ${row.height} high${row.shift ? ` (shift ${row.shift})` : ""}`)
+    .join(", ");
   const feet = config.feet ? "feet" : "no feet";
-  return `${config.width} x ${config.depth} x ${config.height} units, ${levels}, ${feet}, ${config.posts} posts`;
+  return `depth ${config.depth} units; rows top to bottom: ${rows}; ${feet}; ${config.posts} posts`;
 }
 
 export function bomToMarkdown(bom: Bom, config: RackConfig, shareUrl: string): string {
