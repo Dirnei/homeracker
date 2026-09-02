@@ -78,13 +78,13 @@ function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
         el("label", { for: id("height") }, ["Height"]),
         el("input", { type: "number", name: "height", id: id("height"), min, max, step: "1", value: String(draft.height) }),
       ]),
-      el("div", { class: "field wide" }, [
-        el("label", { for: id("columns") }, ["Column widths"]),
-        el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4" }),
-      ]),
       el("div", { class: "field" }, [
         el("label", { for: id("shift") }, ["Shift"]),
         el("input", { type: "number", name: "shift", id: id("shift"), min: "0", max, step: "1", value: String(draft.shift) }),
+      ]),
+      el("div", { class: "field wide" }, [
+        el("label", { for: id("columns") }, ["Column widths"]),
+        el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4" }),
       ]),
     ]),
     el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
