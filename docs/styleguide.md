@@ -13,7 +13,7 @@ The palette is defined once, in [`models/core/lib/constants.scad`](../models/cor
 | `HR_YELLOW` | `#f7b600` | Supports, the brand accent, primary buttons, highlights |
 | `HR_BLUE` | `#0056b3` | Connector cores |
 | `HR_RED` | `#c41e3a` | Feet, warnings |
-| `HR_GREEN` | `#2d7a2e` | Panels in previews |
+| `HR_GREEN` | `#2d7a2e` | Connector arm interiors in renders |
 | `HR_CHARCOAL` | `#333333` | Lock pins, print interfaces |
 | `HR_WHITE` | `#f0f0f0` | Pull-through connectors |
 
@@ -29,6 +29,7 @@ Web surfaces add a neutral dark scale around the palette:
 | `--muted` | `#a3a49f` | Secondary text, labels |
 | `--link` | `#4d95ff` | Links (HR_BLUE lifted for contrast on dark) |
 | `--danger` | `#ff4d6a` | Validation errors (HR_RED lifted for contrast on dark) |
+| panel plate | `#d9d6cc` | Panels in 3D previews: a matte bone white, distinct from yellow supports and white pull-through cores |
 
 Rules: yellow is the only loud colour on a page. Blue is for links and connector cores, red only for errors and feet. Body text stays at 4.5:1 contrast or better against its background.
 

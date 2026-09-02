@@ -46,6 +46,14 @@ function parts() {
   }
   list.push({ name: "lockpin", file: "models/core/parts/lockpin.scad", defines: [] });
   list.push({ name: "foot", file: "models/foot/parts/foot.scad", defines: [] });
+  // Panel kit: panels are assembled in the browser from their mount plates and corner brackets.
+  const kit = "site/scripts/scad/panel_kit.scad";
+  for (const [code, type] of [["i", 1], ["f", 2]]) {
+    list.push({ name: `panel-corner-${code}`, file: kit, defines: ['part="mount_corner"', `panel_type=${type}`] });
+    for (let units = 3; units <= 16; units++) {
+      list.push({ name: `panel-mount-${code}-${units}`, file: kit, defines: ['part="mount_plate"', `panel_type=${type}`, `units=${units}`] });
+    }
+  }
   return list;
 }
 
