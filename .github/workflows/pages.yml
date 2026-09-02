@@ -35,28 +35,20 @@ jobs:
             site/package-lock.json
             configurator/package-lock.json
 
+      - name: Install configurator dependencies
+        working-directory: configurator
+        run: npm ci
+
       - name: Build site
         working-directory: site
         run: |
           npm ci
           npm run build
 
-      - name: Build configurator
-        working-directory: configurator
-        run: |
-          npm ci
-          npm run build
-
-      - name: Assemble site
-        run: |
-          mkdir -p _site
-          cp -r site/dist/. _site/
-          cp -r configurator/dist _site/configurator
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: site/dist
 
   deploy:
     needs: build

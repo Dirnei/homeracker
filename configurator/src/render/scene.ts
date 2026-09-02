@@ -19,10 +19,10 @@ export interface Viewer {
 }
 
 export function createViewer(canvas: HTMLCanvasElement): Viewer {
-  const renderer = new WebGLRenderer({ canvas, antialias: true });
+  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(new Color("#000000"), 0);
   const scene = new Scene();
-  scene.background = new Color("#e8e8e8");
 
   const camera = new PerspectiveCamera(45, 1, 0.1, 1000);
   camera.up.set(0, 0, 1);
@@ -34,7 +34,7 @@ export function createViewer(canvas: HTMLCanvasElement): Viewer {
   sun.position.set(40, -60, 80);
   scene.add(sun);
 
-  const grid = new GridHelper(100, 100, "#999999", "#cccccc");
+  const grid = new GridHelper(100, 100, "#3a3e48", "#22252c");
   grid.rotation.x = Math.PI / 2;
   scene.add(grid);
 

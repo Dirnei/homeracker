@@ -1,167 +1,55 @@
+/* Standalone shell: the same tokens homeracker.org defines, so the app looks identical on its own. */
+
 :root {
-  font-family: system-ui, sans-serif;
-  color-scheme: light dark;
-  --accent: #0056b3;
-  --border: #8884;
+  --bg: #0b0c10;
+  --panel: #15171c;
+  --panel-2: #1c1f26;
+  --line: #2a2e38;
+  --text: #e8e6df;
+  --muted: #a3a49f;
+  --accent: #f7b600;
+  --accent-ink: #1a1300;
+  --danger: #ff4d6a;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-label: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.55;
 }
 
 body {
   margin: 0;
 }
 
-header {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
+.standalone-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
 }
 
-header h1 {
+.standalone-header h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   margin: 0;
-  font-size: 1.25rem;
 }
 
-header h1 a {
+.standalone-header a {
   color: var(--accent);
   text-decoration: none;
 }
 
-header p {
-  margin: 0.25rem 0 0;
-  opacity: 0.8;
-}
-
-#layout {
-  display: grid;
-  grid-template-columns: 18rem 1fr 22rem;
-  height: calc(100vh - 4.5rem);
-}
-
-#controls,
-#bom {
-  padding: 1rem;
-  overflow: auto;
-}
-
-#controls {
-  border-right: 1px solid var(--border);
-}
-
-#bom {
-  border-left: 1px solid var(--border);
-}
-
-main {
-  min-height: 60vh;
-}
-
-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-fieldset {
-  border: 1px solid var(--border);
-  margin: 0 0 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin: 0.4rem 0;
-}
-
-.field.inline {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.field input[type="number"],
-.field input[type="text"],
-.field select {
-  font: inherit;
-  padding: 0.3rem;
-}
-
-.readout {
-  font-size: 0.9rem;
-  opacity: 0.8;
-  margin: 0.25rem 0;
-}
-
-#issues {
-  color: #c41e3a;
-  padding-left: 1.2rem;
-}
-
-#issues:empty {
-  display: none;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-td,
-th {
-  text-align: left;
-  padding: 0.25rem 0.4rem;
-  border-bottom: 1px solid var(--border);
-}
-
-tr.group th {
-  padding-top: 0.75rem;
-  color: var(--accent);
-}
-
-td.qty {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  width: 3rem;
-}
-
-td.note {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-tr.total td {
-  font-weight: 600;
-  border-bottom: none;
-}
-
-button {
-  margin-top: 1rem;
-  padding: 0.5rem 0.9rem;
-  font: inherit;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-textarea {
-  width: 100%;
-  min-height: 12rem;
-  margin-top: 0.5rem;
-}
-
-@media (max-width: 900px) {
-  #layout {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  #controls,
-  #bom {
-    border: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  main {
-    height: 60vh;
-  }
+.standalone-header p {
+  margin: 0;
+  color: var(--muted);
 }

@@ -29,8 +29,8 @@ Astro caches rendered markdown in `.astro/`. After changing the rehype transform
 | `src/lib/sections.ts` | Wraps each heading block in a `<section>` so the theme can lay out README sections; drops the GitHub table of contents |
 | `src/lib/catalog.ts` | Builds catalog cards from `models/README.md` |
 | `src/lib/rack.ts` | Home page hero: the default configurator rack drawn with Three.js, orbiting slowly (still image under reduced motion) |
-| `src/pages/` | `index.astro` (README), `models/index.astro` (catalog), `models/[slug].astro` (model pages) |
-| `src/styles/global.css` | Design tokens and markdown styling |
+| `src/pages/` | `index.astro` (README), `models/index.astro` (catalog), `models/[slug].astro` (model pages), `configurator.astro` (mounts the configurator app) |
+| `src/styles/global.css` | Design tokens, the Barlow type system (Condensed for display, Semi Condensed for labels, regular for body; monospace only in code) and markdown styling |
 
 ### Writing docs that render well
 
@@ -40,7 +40,7 @@ Astro caches rendered markdown in `.astro/`. After changing the rehype transform
 
 ### Deploy
 
-`.github/workflows/pages.yml` builds this site and the configurator, assembles them into `_site/`, and deploys with `actions/deploy-pages`. The repository's Pages source must be set to **GitHub Actions**; the custom domain comes from `public/CNAME`.
+`.github/workflows/pages.yml` installs both packages, builds this site (which bundles the configurator page), and deploys `site/dist` with `actions/deploy-pages`. The repository's Pages source must be set to **GitHub Actions**; the custom domain comes from `public/CNAME`.
 
 ## 📚 References
 

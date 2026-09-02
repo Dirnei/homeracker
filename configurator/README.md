@@ -24,6 +24,8 @@ npm run build    # static bundle in dist/, served under /configurator/
 |---|---|
 | `src/engine/` | Pure geometry + parts list. No DOM, no Three.js (enforced by `tsconfig.engine.json` and eslint) |
 | `src/render/` | `layout.ts` turns a model into unit boxes (pure, tested); `scene.ts` draws them with Three.js |
+| `src/app.ts` | `mountConfigurator(root)`: builds the controls, stage and parts list inside any element |
+| `src/configurator.css` | Component styles; reads the site design tokens, falls back to matching values standalone |
 | `src/ui/` | Form, parts-list table, URL hash sync |
 | `tests/` | Vitest; `fixtures.ts` holds the worked examples |
 
@@ -41,7 +43,7 @@ Worked example (defaults): 6 x 6 x 10 units, one level at z=6, feet on, segmente
 
 ### Deploy
 
-`.github/workflows/pages.yml` builds the [site](../site/README.md) and this app, places `configurator/dist` under `_site/configurator`, and deploys with `actions/deploy-pages`. The repository's Pages source must be set to **GitHub Actions**.
+The [site](../site/README.md) mounts this app on its `/configurator/` page by importing `src/app.ts` and `src/configurator.css` directly, so the deployed configurator shares the site's navigation, fonts and colours. `npm run build` here still produces a standalone bundle for local use; `index.html` is that shell.
 
 ## 📚 References
 

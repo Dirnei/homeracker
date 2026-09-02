@@ -21,9 +21,9 @@ homeracker.org was the root `README.md` rendered by the classic GitHub Pages Jek
 
 - `site/` is an Astro static site. Collections load `README.md`, `models/README.md`, and `models/*/README.md` from their real locations; nothing is copied.
 - Two rehype transforms keep the READMEs readable on the site: relative links are rewritten to site routes or GitHub, and heading blocks are wrapped in sections so the theme can lay them out. The GitHub table of contents is dropped.
-- The home page hero reuses the configurator engine to draw the default rack live; the model catalog is parsed from `models/README.md`.
-- Visual identity: HomeRacker yellow `#f7b600` as the single accent on near-black, IBM Plex Sans/Mono for body and data, Chakra Petch for display, and the 15 mm base unit as a visible lattice (pin-hole background, support-beam dividers).
-- `pages.yml` builds the site and the configurator and deploys both with `actions/deploy-pages`. `_config.yml` and the root `CNAME` are gone; the domain lives in `site/public/CNAME`.
+- The home page hero reuses the configurator engine to draw the default rack live; the model catalog is parsed from `models/README.md`; the `/configurator/` page mounts the configurator app (`configurator/src/app.ts`) inside the site layout so it shares navigation and tokens.
+- Visual identity: HomeRacker yellow `#f7b600` as the single accent on near-black; the Barlow family (Condensed for display, Semi Condensed for labels, regular for body) chosen from the industrial pairing in the `ui-ux-pro-max` typography data, with monospace reserved for code; the 15 mm base unit as a visible lattice (pin-hole background, support-beam dividers).
+- `pages.yml` builds the site (which bundles the configurator page) and deploys it with `actions/deploy-pages`. `_config.yml` and the root `CNAME` are gone; the domain lives in `site/public/CNAME`.
 - The `Web` workflow (`web.yml`) type-checks, tests, and builds both apps on pull requests; a `site-check` pre-commit hook runs when the site or any rendered README changes.
 
 ## 📊 Consequences

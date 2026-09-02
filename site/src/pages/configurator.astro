@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Configurator – HomeRacker"
+  description="Plan a HomeRacker rack: set width, depth, height, levels, feet and panels, preview it in 3D, and copy the parts list."
+>
+  <div class="wrap head">
+    <p class="eyebrow">Plan before you print</p>
+    <h1>Configurator</h1>
+    <p class="lede">
+      Set the frame, add levels and panels, and read off exactly which supports, connectors and lock pins to print.
+      The link in your address bar is the saved rack; share it as it is.
+    </p>
+  </div>
+  <div id="configurator" class="app"></div>
+</Base>
+
+<script>
+  import "../../../configurator/src/configurator.css";
+  import { mountConfigurator } from "../../../configurator/src/app";
+
+  const root = document.querySelector<HTMLElement>("#configurator");
+  if (root) mountConfigurator(root);
+</script>
+
+<style>
+  .head {
+    padding: 2.5rem 0 1.5rem;
+    max-width: var(--measure);
+  }
+
+  h1 {
+    margin: 0.5rem 0 0.8rem;
+  }
+
+  .lede {
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  .app {
+    min-height: 60vh;
+  }
+</style>
