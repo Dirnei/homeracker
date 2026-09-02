@@ -255,6 +255,10 @@ HomeRacker includes custom tooling to streamline development:
   - Uses scadm under the hood, with caching for fast runs
   - Usage: `uses: kellerlabs/homeracker/.github/actions/setup-openscad@setup-openscad-v1`
 
+- **[Site](site/README.md)** - homeracker.org, built by Astro from the READMEs in this repo
+  - Home page, model catalog and model pages come straight from `README.md` and `models/*/README.md`
+  - Relative links and render images are resolved at build time
+
 - **[Configurator](configurator/README.md)** - Web-based rack planner with parts list
   - Define a rack, preview it, copy the bill of materials
   - Live at [homeracker.org/configurator](https://homeracker.org/configurator/)

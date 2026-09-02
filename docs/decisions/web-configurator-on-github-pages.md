@@ -27,8 +27,8 @@ A configurator needs a place to live, a toolchain, a way to publish, and a previ
 - **Engine/render split**: `src/engine/` is pure (no DOM, no Three.js) and holds every geometry rule and the bill of materials; enforced by a separate `tsconfig.engine.json` and an eslint import restriction. `src/render/` and `src/ui/` are thin.
 - **Preview**: schematic unit boxes in HomeRacker colours from `constants.scad`. Lock pins are not drawn.
 - **Sharing**: the config is encoded in the URL hash (`#v=1&w=6&d=6&h=10&l=6&f=1&p=s`); no backend.
-- **Deploy**: `pages.yml` builds the Jekyll README site with `actions/jekyll-build-pages`, adds the Vite build under `_site/configurator`, and deploys with `actions/deploy-pages`. Pages source must be set to **GitHub Actions** once. `_config.yml` excludes `configurator/` so Jekyll never sees sources or `node_modules`.
-- **CI**: `configurator.yml` lints, tests and builds on PRs touching `configurator/**`; a local pre-commit hook runs the same `npm run check`.
+- **Deploy**: `pages.yml` builds the site and the Vite app and deploys both with `actions/deploy-pages`; the app lands under `/configurator/`. Pages source must be set to **GitHub Actions** once. (Superseded detail: the first version kept the Jekyll README build; see [astro-site-replaces-jekyll](astro-site-replaces-jekyll.md).)
+- **CI**: the `Web` workflow (`web.yml`) lints, tests and builds on PRs touching `configurator/**`; a local pre-commit hook runs the same `npm run check`.
 
 ### Geometry rules encoded
 

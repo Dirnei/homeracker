@@ -41,7 +41,7 @@ Worked example (defaults): 6 x 6 x 10 units, one level at z=6, feet on, segmente
 
 ### Deploy
 
-`.github/workflows/pages.yml` builds the Jekyll README site, adds `configurator/dist` under `_site/configurator`, and deploys with `actions/deploy-pages`. The repository's Pages source must be set to **GitHub Actions**.
+`.github/workflows/pages.yml` builds the [site](../site/README.md) and this app, places `configurator/dist` under `_site/configurator`, and deploys with `actions/deploy-pages`. The repository's Pages source must be set to **GitHub Actions**.
 
 ## 📚 References
 
