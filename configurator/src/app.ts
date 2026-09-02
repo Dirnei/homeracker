@@ -14,14 +14,19 @@ import { onHashChange, readHash, shareUrl, writeHash } from "./ui/hash";
  * Build the configurator inside `root`: controls, 3D stage and parts list.
  * Used by the standalone app (index.html) and by the site's /configurator/ page.
  */
-export function mountConfigurator(root: HTMLElement): void {
+export interface ConfiguratorOptions {
+  /** Base URL of the exported part meshes; omit to draw schematic boxes. */
+  partsUrl?: string;
+}
+
+export function mountConfigurator(root: HTMLElement, options: ConfiguratorOptions = {}): void {
   const controls = el("aside", { class: "cfg-controls", "aria-label": "Rack settings" });
   const canvas = el("canvas", { class: "cfg-canvas", "aria-label": "3D preview of the rack" });
   const stage = el("div", { class: "cfg-stage" }, [canvas]);
   const bomRoot = el("section", { class: "cfg-bom", "aria-label": "Parts list" });
   root.replaceChildren(el("div", { class: "cfg" }, [controls, stage, bomRoot]));
 
-  const viewer = createViewer(canvas);
+  const viewer = createViewer(canvas, { partsUrl: options.partsUrl });
 
   const apply = (config: RackConfig): boolean => {
     const issues = validate(config);

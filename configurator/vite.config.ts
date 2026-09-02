@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   base: "/configurator/",
+  // Serve the part meshes exported for the site (site/public/parts) in standalone mode too.
+  publicDir: "../site/public",
   build: {
     outDir: "dist",
     chunkSizeWarningLimit: 800,

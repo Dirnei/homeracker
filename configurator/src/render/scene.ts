@@ -13,12 +13,18 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { RackModel, Vec3 } from "../engine/types";
 import { buildRackGroup } from "./build";
 import { createMaterials } from "./materials";
+import { buildRealRack, PartLibrary } from "./meshes";
 
 export interface Viewer {
   show(model: RackModel): void;
 }
 
-export function createViewer(canvas: HTMLCanvasElement): Viewer {
+export interface ViewerOptions {
+  /** Base URL of the exported part meshes (with trailing slash). Without them the rack is drawn as boxes. */
+  partsUrl?: string;
+}
+
+export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions = {}): Viewer {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(new Color("#000000"), 0);
@@ -41,6 +47,8 @@ export function createViewer(canvas: HTMLCanvasElement): Viewer {
   const materials = createMaterials();
   let rack: Group | null = null;
   let framedExtent: Vec3 | null = null;
+  const library = options.partsUrl ? PartLibrary.load(options.partsUrl) : Promise.resolve(null);
+  let generation = 0;
 
   const render = () => renderer.render(scene, camera);
 
@@ -69,14 +77,22 @@ export function createViewer(canvas: HTMLCanvasElement): Viewer {
   new ResizeObserver(resize).observe(canvas);
   resize();
 
+  const present = (model: RackModel, group: Group) => {
+    if (rack) scene.remove(rack);
+    rack = group;
+    grid.position.set(model.extent[0] / 2, model.extent[1] / 2, model.config.feet ? -1.2 : 0);
+    scene.add(rack);
+    if (needsReframe(model.extent)) frame(model.extent);
+    render();
+  };
+
   return {
     show(model) {
-      if (rack) scene.remove(rack);
-      rack = buildRackGroup(model, materials);
-      grid.position.set(model.extent[0] / 2, model.extent[1] / 2, model.config.feet ? -1.2 : 0);
-      scene.add(rack);
-      if (needsReframe(model.extent)) frame(model.extent);
-      render();
+      const ticket = ++generation;
+      void library.then(async (lib) => {
+        const group = lib ? await buildRealRack(model, lib, materials) : buildRackGroup(model, materials);
+        if (ticket === generation) present(model, group);
+      });
     },
   };
 }

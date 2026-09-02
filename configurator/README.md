@@ -23,7 +23,8 @@ npm run build    # static bundle in dist/, served under /configurator/
 | Path | Purpose |
 |---|---|
 | `src/engine/` | Pure geometry + parts list. No DOM, no Three.js (enforced by `tsconfig.engine.json` and eslint) |
-| `src/render/` | `layout.ts` turns a model into unit boxes (pure, tested); `scene.ts` draws them with Three.js |
+| `src/engine/orientation.ts` | Finds which of the 24 cube rotations maps a canonical connector mesh onto a node (pure, tested) |
+| `src/render/` | `meshes.ts` draws real part meshes from the exported library (connectors per type and pull-through axis, supports per length, lock pins, feet); `layout.ts` + `build.ts` are the schematic box fallback; `scene.ts` picks one |
 | `src/app.ts` | `mountConfigurator(root)`: builds the controls, stage and parts list inside any element |
 | `src/configurator.css` | Component styles; reads the site design tokens, falls back to matching values standalone |
 | `src/ui/` | Form, parts-list table, URL hash sync |
@@ -39,6 +40,10 @@ npm run build    # static bundle in dist/, served under /configurator/
 - One lock pin per occupied arm. Feet plug into the `-z` arm of every floor node.
 - A panel fills the opening bounded by its supports: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Front and back get one panel per column per row, left and right one per row, top and bottom cover the bays of the top and bottom row (exposed roofs of wider lower rows are not panelled). Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
 - URL hash: `v=2&d=<depth>&r=<height>:<w>.<w>[~shift]_<row>...&f=<feet>&p=<s|c>&pn=<face>.<i|f>_...`. Version 1 links (single column, level positions) still open.
+
+### Preview
+
+The 3D preview uses the part meshes exported by `site/scripts/export-parts.mjs` (served under `/parts/`; the standalone app serves `../site/public` too). Every connector is placed with the rotation from `orientation.ts`, lock pins sit in every occupied arm, feet plug into the floor arms. Panels remain translucent slabs because they are parametric in two dimensions. Without the mesh library the preview falls back to schematic boxes.
 
 Worked example (defaults): depth 6, rows 5 and 4 high with one 6-unit column, feet on, segmented posts gives 12 x 6u + 4 x 5u + 4 x 4u supports, 8 x 3D4W + 4 x 3D3W connectors, 44 lock pins, 4 feet. Splitting the bottom row into two 4-unit columns adds a post, two T connectors (3D5W and 3D4W) and two feet.
 

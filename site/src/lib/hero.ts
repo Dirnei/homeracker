@@ -20,8 +20,11 @@ const UNIT = 15;
 const SPAN = 4 * UNIT;
 const CENTER = new Vector3(SPAN / 2, SPAN / 2, SPAN / 2);
 
+type Kind = "connector" | "support" | "lockpin";
+const FILES: Record<Kind, string> = { connector: "connector-3d3w", support: "support-3", lockpin: "lockpin" };
+
 interface Manifest {
-  parts: Record<"connector" | "support" | "lockpin", { file: string }>;
+  parts: Record<string, { file: string }>;
 }
 
 interface Part {
@@ -49,14 +52,14 @@ function alongAxis(dir: Vector3): Quaternion {
   return new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir.clone().normalize());
 }
 
-function buildCube(geometries: Record<keyof Manifest["parts"], BufferGeometry>): Part[] {
+function buildCube(geometries: Record<Kind, BufferGeometry>): Part[] {
   const parts: Part[] = [];
   const materials = {
     connector: material(COLORS.connector),
     support: material(COLORS.support),
     lockpin: material(COLORS.lockpin),
   };
-  const add = (kind: keyof Manifest["parts"], rest: Vector3, rotation: Quaternion, explode: Vector3) => {
+  const add = (kind: Kind, rest: Vector3, rotation: Quaternion, explode: Vector3) => {
     const mesh = new Mesh(geometries[kind], materials[kind]);
     mesh.quaternion.copy(rotation);
     parts.push({ mesh, rest, explode });
@@ -119,16 +122,18 @@ function explosionAt(seconds: number): number {
   return 1;
 }
 
-async function loadParts(manifest: Manifest): Promise<Record<keyof Manifest["parts"], BufferGeometry>> {
+async function loadParts(manifest: Manifest): Promise<Record<Kind, BufferGeometry>> {
   const loader = new STLLoader();
   const entries = await Promise.all(
-    (Object.keys(manifest.parts) as (keyof Manifest["parts"])[]).map(async (kind) => {
-      const geometry = await loader.loadAsync(`/parts/${manifest.parts[kind].file}`);
+    (Object.keys(FILES) as Kind[]).map(async (kind) => {
+      const entry = manifest.parts[FILES[kind]];
+      if (!entry) throw new Error(`part ${FILES[kind]} missing from manifest`);
+      const geometry = await loader.loadAsync(`/parts/${entry.file}`);
       geometry.computeVertexNormals();
       return [kind, geometry] as const;
     }),
   );
-  return Object.fromEntries(entries) as Record<keyof Manifest["parts"], BufferGeometry>;
+  return Object.fromEntries(entries) as Record<Kind, BufferGeometry>;
 }
 
 function mountExplodedCube(canvas: HTMLCanvasElement, parts: Part[]): void {

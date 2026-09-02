@@ -1,7 +1,8 @@
-// Export the core parts used by the home page hero from the OpenSCAD sources.
-// Writes site/public/parts/*.stl and a manifest. Skips (with a warning) when OpenSCAD is
-// not installed, unless PARTS_REQUIRED=1; the hero then falls back to its schematic rack.
-import { spawnSync } from "node:child_process";
+// Export the HomeRacker core parts used by the site (hero) and the configurator preview from
+// their OpenSCAD sources into site/public/parts/ (gitignored), plus a manifest.
+// Skips with a warning when OpenSCAD is not installed, unless PARTS_REQUIRED=1; the pages then
+// fall back to schematic boxes.
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,13 +12,42 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
 const binDir = path.join(repo, "bin", "openscad");
 const outDir = path.join(here, "..", "public", "parts");
-
-const PARTS = [
-  { name: "connector", file: "models/core/parts/connector.scad", defines: ["optimal_orientation=false"] },
-  { name: "support", file: "models/core/parts/support.scad", defines: ["units=3"] },
-  { name: "lockpin", file: "models/core/parts/lockpin.scad", defines: [] },
-];
 const DETAIL = "$fn=24";
+const MAX_SUPPORT = 50;
+const JOBS = Math.max(2, Math.min(os.cpus().length, 6));
+
+/** Connector types (dimensions, ways) and the axes that may be pull-through for each. */
+const CONNECTORS = [
+  [1, 1, []],
+  [1, 2, ["z"]],
+  [2, 2, []],
+  [2, 3, ["z"]],
+  [2, 4, ["z", "x"]],
+  [3, 3, []],
+  [3, 4, ["z"]],
+  [3, 5, ["z", "x"]],
+  [3, 6, ["z", "x", "y"]],
+];
+
+function parts() {
+  const list = [];
+  for (const [dimensions, ways, pulls] of CONNECTORS) {
+    for (const pull of ["none", ...pulls]) {
+      const name = `connector-${dimensions}d${ways}w${pull === "none" ? "" : `-${pull}`}`;
+      list.push({
+        name,
+        file: "models/core/parts/connector.scad",
+        defines: [`dimensions=${dimensions}`, `directions=${ways}`, `pull_through_axis="${pull}"`, "optimal_orientation=false"],
+      });
+    }
+  }
+  for (let units = 1; units <= MAX_SUPPORT; units++) {
+    list.push({ name: `support-${units}`, file: "models/core/parts/support.scad", defines: [`units=${units}`] });
+  }
+  list.push({ name: "lockpin", file: "models/core/parts/lockpin.scad", defines: [] });
+  list.push({ name: "foot", file: "models/foot/parts/foot.scad", defines: [] });
+  return list;
+}
 
 function onPath(name) {
   const probe = spawnSync(os.platform() === "win32" ? "where" : "which", [name], { encoding: "utf8" });
@@ -36,41 +66,66 @@ function findOpenscad() {
   return onPath("openscad") ?? onPath("openscad-nightly");
 }
 
-const openscad = findOpenscad();
-if (!openscad) {
-  const message = "OpenSCAD not found (run `scadm install` or set OPENSCAD); hero parts not exported";
-  if (process.env.PARTS_REQUIRED === "1") {
-    console.error(message);
-    process.exit(1);
-  }
-  console.warn(message);
-  process.exit(0);
-}
-
-const env = { ...process.env };
-const libraries = path.join(binDir, "libraries");
-if (fs.existsSync(libraries)) env.OPENSCADPATH = libraries;
-
-const runner = os.platform() === "linux" && onPath("xvfb-run") ? ["xvfb-run", "-a"] : [];
-
-fs.mkdirSync(outDir, { recursive: true });
-const manifest = { generated: new Date().toISOString(), openscad: path.basename(openscad), parts: {} };
-
-for (const part of PARTS) {
+function exportPart(openscad, env, runner, part) {
   const target = path.join(outDir, `${part.name}.stl`);
   const args = ["-o", target, "--export-format", "binstl"];
   for (const define of [...part.defines, DETAIL]) args.push("-D", define);
   args.push(path.join(repo, part.file));
-  const [cmd, ...pre] = runner.length ? runner : [openscad];
-  const result = spawnSync(cmd, runner.length ? [...pre, openscad, ...args] : args, { env, encoding: "utf8" });
-  if (result.status !== 0 || !fs.existsSync(target)) {
-    console.error(`export failed for ${part.name}\n${result.stderr ?? ""}`);
-    process.exit(1);
-  }
-  const triangles = fs.statSync(target).size > 84 ? (fs.statSync(target).size - 84) / 50 : 0;
-  manifest.parts[part.name] = { file: `${part.name}.stl`, triangles };
-  console.log(`exported ${part.name}: ${triangles} triangles`);
+  const [cmd, ...cmdArgs] = runner.length ? [...runner, openscad, ...args] : [openscad, ...args];
+  return new Promise((resolve) => {
+    const child = spawn(cmd, cmdArgs, { env });
+    let stderr = "";
+    child.stderr.on("data", (d) => (stderr += d));
+    child.on("close", (code) => {
+      if (code !== 0 || !fs.existsSync(target)) {
+        resolve({ part, error: stderr || `exit ${code}` });
+        return;
+      }
+      resolve({ part, triangles: Math.round((fs.statSync(target).size - 84) / 50) });
+    });
+  });
 }
 
-fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
-console.log(`wrote ${path.relative(repo, path.join(outDir, "manifest.json"))}`);
+async function main() {
+  const openscad = findOpenscad();
+  if (!openscad) {
+    const message = "OpenSCAD not found (run `scadm install` or set OPENSCAD); parts not exported";
+    if (process.env.PARTS_REQUIRED === "1") {
+      console.error(message);
+      process.exit(1);
+    }
+    console.warn(message);
+    return;
+  }
+
+  const env = { ...process.env };
+  const libraries = path.join(binDir, "libraries");
+  if (fs.existsSync(libraries)) env.OPENSCADPATH = libraries;
+  const runner = os.platform() === "linux" && onPath("xvfb-run") ? ["xvfb-run", "-a"] : [];
+
+  fs.mkdirSync(outDir, { recursive: true });
+  const queue = parts();
+  const manifest = { generated: new Date().toISOString(), unit: 15, parts: {} };
+  let failed = false;
+
+  const worker = async () => {
+    for (let part = queue.shift(); part; part = queue.shift()) {
+      const result = await exportPart(openscad, env, runner, part);
+      if (result.error) {
+        failed = true;
+        console.error(`export failed for ${part.name}\n${result.error}`);
+      } else {
+        manifest.parts[part.name] = { file: `${part.name}.stl`, triangles: result.triangles };
+      }
+    }
+  };
+  const started = Date.now();
+  await Promise.all(Array.from({ length: JOBS }, worker));
+  if (failed) process.exit(1);
+
+  fs.writeFileSync(path.join(outDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+  const count = Object.keys(manifest.parts).length;
+  console.log(`exported ${count} parts in ${Math.round((Date.now() - started) / 1000)}s -> ${path.relative(repo, outDir)}`);
+}
+
+await main();
