@@ -6,10 +6,10 @@
   <div class="wrap grid">
     <div class="copy">
       <p class="eyebrow">Open source · Fully modular · 3D printable</p>
-      <h1>Server rack.<br />Shoe rack.<br /><span>Whatever rack.</span></h1>
+      <h1><span class="line">Server rack.</span><span class="line">Shoe rack.</span><span class="line hi">Whatever rack.</span></h1>
       <p class="lede">
-        HomeRacker is a fully modular 3D-printable rack-building system. Server rack, 10-inch homelab, bookshelf,
-        shoe rack: supports, connectors and lock pins snap into whatever shape you need, and grow with you.
+        HomeRacker is a fully modular, 3D-printable rack-building system. Supports, connectors and lock pins snap
+        into whatever shape you need today, and get rebuilt when that changes.
       </p>
       <div class="actions">
         <a class="button primary" href="/configurator/">Plan your rack</a>
@@ -64,11 +64,16 @@
 
   h1 {
     margin: 1rem 0 1.25rem;
-    font-size: clamp(3.4rem, 8vw, 6.6rem);
-    line-height: 0.9;
+    font-size: clamp(3rem, 6.4vw, 5.6rem);
+    line-height: 0.92;
   }
 
-  h1 span {
+  .line {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .hi {
     color: var(--accent);
     text-shadow: 0 0 18px rgba(247, 182, 0, 0.35);
   }
