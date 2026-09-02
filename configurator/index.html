@@ -7,7 +7,15 @@
     <link rel="icon" href="/favicon.ico" />
   </head>
   <body>
-    <main><canvas id="viewer"></canvas></main>
+    <header>
+      <h1><a href="/">HomeRacker</a> Configurator</h1>
+      <p>Plan a rack, preview it, and get the parts list to print.</p>
+    </header>
+    <div id="layout">
+      <aside id="controls"></aside>
+      <main><canvas id="viewer"></canvas></main>
+      <section id="bom"></section>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
