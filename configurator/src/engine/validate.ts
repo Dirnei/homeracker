@@ -1,20 +1,16 @@
 import { LIMITS } from "./constants";
-import { openings } from "./panels";
-import type { Opening, RackConfig, ValidationIssue } from "./types";
+import type { RackConfig, ValidationIssue } from "./types";
 
 export const MAX_ROWS = 24;
 export const MAX_COLUMNS = 12;
 
+/** Depth, heights and widths are supports between two connectors, so they follow the span limits. */
 function isSupportLength(value: number): boolean {
-  return Number.isInteger(value) && value >= LIMITS.support.min && value <= LIMITS.support.max;
-}
-
-function isPanelSize(value: number): boolean {
-  return value >= LIMITS.panel.min && value <= LIMITS.panel.max;
+  return Number.isInteger(value) && value >= LIMITS.span.min && value <= LIMITS.span.max;
 }
 
 function rowIssue(config: RackConfig): ValidationIssue | null {
-  const range = `between ${LIMITS.support.min} and ${LIMITS.support.max} units`;
+  const range = `between ${LIMITS.span.min} and ${LIMITS.span.max} units`;
   if (config.rows.length === 0) return { field: "rows", message: "add at least one row" };
   if (config.rows.length > MAX_ROWS) return { field: "rows", message: `at most ${MAX_ROWS} rows` };
   for (const [i, row] of config.rows.entries()) {
@@ -32,35 +28,17 @@ function rowIssue(config: RackConfig): ValidationIssue | null {
   return null;
 }
 
-/** Human name of an opening for messages: "front, row 1, bay 2" or "top, span 1". */
-export function describeOpening(opening: Opening, rowCount: number): string {
-  if (opening.face === "horizontal") {
-    const level = opening.at === 0 ? "bottom" : opening.at === rowCount ? "top" : `shelf above row ${opening.at}`;
-    return `${level}, span ${opening.index + 1}`;
-  }
-  const bay = opening.face === "front" || opening.face === "back" ? `, bay ${opening.index + 1}` : "";
-  return `${opening.face}, row ${opening.at + 1}${bay}`;
-}
-
 export function validate(config: RackConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!isSupportLength(config.depth)) {
     issues.push({
       field: "depth",
-      message: `depth must be a whole number between ${LIMITS.support.min} and ${LIMITS.support.max} units`,
+      message: `depth must be a whole number between ${LIMITS.span.min} and ${LIMITS.span.max} units`,
     });
   }
   const rows = rowIssue(config);
   if (rows) issues.push(rows);
-  if (issues.length > 0) return issues;
-
-  for (const opening of openings(config)) {
-    const closed = config.panels.some((p) => p.face === opening.face && p.at === opening.at && p.index === opening.index);
-    if (!closed || (isPanelSize(opening.length) && isPanelSize(opening.height))) continue;
-    issues.push({
-      field: "panels",
-      message: `panel on ${describeOpening(opening, config.rows.length)}: opening ${opening.length}x${opening.height} is outside ${LIMITS.panel.min}..${LIMITS.panel.max} units`,
-    });
-  }
+  // Panels never invalidate a rack: one that fits no standard part is kept, marked in the drawings,
+  // the parts list and the 3D view, so the problem shows where it was configured.
   return issues;
 }

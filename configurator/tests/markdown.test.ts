@@ -3,20 +3,27 @@ import { computeBom } from "../src/engine/bom";
 import { bomToMarkdown, describeConfig } from "../src/engine/markdown";
 import { buildModel } from "../src/engine/model";
 import { closeFace } from "../src/engine/panels";
-import { exampleA, twoColumns } from "./fixtures";
+import { exampleA, exampleB, twoColumns } from "./fixtures";
 
 describe("describeConfig", () => {
   test("lists rows top to bottom with their columns", () => {
-    expect(describeConfig(exampleA)).toBe(
-      "depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet; segmented posts",
-    );
-    expect(describeConfig(twoColumns)).toBe("depth 6 units; rows top to bottom: 4+4 wide x 5 high; feet; segmented posts");
+    expect(describeConfig(exampleA)).toBe("depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet");
+    expect(describeConfig(twoColumns)).toBe("depth 6 units; rows top to bottom: 4+4 wide x 5 high; feet");
+  });
+
+  test("uses row names when given", () => {
+    const named = { ...exampleA, rows: [{ ...exampleA.rows[0]!, name: "Storage" }, exampleA.rows[1]!] };
+    expect(describeConfig(named)).toBe("depth 6 units; rows top to bottom: 6 wide x 4 high, Storage: 6 wide x 5 high; feet");
+  });
+
+  test("marks rows whose posts continue from below", () => {
+    expect(describeConfig(exampleB)).toBe("depth 6 units; rows top to bottom: 6 wide x 4 high (posts continue), 6 wide x 5 high; feet");
   });
 });
 
 describe("bomToMarkdown", () => {
   const config = closeFace(exampleA, "top", "fullcover");
-  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=3");
+  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=4");
 
   test("starts with a heading and the outer size", () => {
     expect(md).toMatch(/^# HomeRacker parts list\n/);
@@ -24,7 +31,7 @@ describe("bomToMarkdown", () => {
   });
 
   test("summarises the config", () => {
-    expect(md).toContain("Rack: depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet; segmented posts");
+    expect(md).toContain("Rack: depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet");
   });
 
   test("lists one table row per line with quantities", () => {
@@ -40,6 +47,6 @@ describe("bomToMarkdown", () => {
   });
 
   test("ends with the share link", () => {
-    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=3\)$/);
+    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=4\)$/);
   });
 });

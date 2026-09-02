@@ -2,7 +2,7 @@
 
 ## 📌 What
 
-Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet and post mode, close individual openings with panels (in to-scale face drawings or by clicking them in the 3D view), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
+Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with an optional name, its own height, column widths and whether its posts continue from the row below), set depth and feet, close individual openings with panels (in to-scale face drawings or by clicking them in the 3D view), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack; the Copy link button puts it on the clipboard. A printer section holds your print volume (default 256 mm cubed, kept in the browser, not in the link); parts that do not fit it are marked in the parts list and drawn red in the 3D view, without blocking anything else.
 
 ## 🤔 Why
 
@@ -24,23 +24,25 @@ npm run build    # static bundle in dist/, served under /configurator/
 |---|---|
 | `src/engine/` | Pure geometry + parts list. No DOM, no Three.js (enforced by `tsconfig.engine.json` and eslint) |
 | `src/engine/orientation.ts` | Finds which of the 24 cube rotations maps a canonical connector mesh onto a node (pure, tested) |
+| `src/engine/printer.ts` | Print bed check: every parts-list line carries the bounding box of one part in mm; `unprintable()` lists the lines that fit no axis-aligned orientation of the bed |
 | `src/render/` | `meshes.ts` draws real part meshes from the exported library (connectors per type and pull-through axis, supports per length, lock pins, feet); `layout.ts` + `build.ts` are the schematic box fallback; `scene.ts` picks one |
 | `src/app.ts` | `mountConfigurator(root)`: builds the controls, stage and parts list inside any element |
 | `src/configurator.css` | Component styles; reads the site design tokens, falls back to matching values standalone |
 | `src/engine/diagrams.ts` | To-scale elevations and plans of every face and frame for the panel drawings (pure, tested) |
-| `src/ui/` | Row editor, panel drawings (click a rectangle to cycle open, inter-fit, full cover; hover syncs with the 3D view), whole-face shortcuts, parts-list table, URL hash sync |
+| `src/ui/` | Row editor (height, shift, column widths, posts continue from below), panel drawings (click a rectangle to cycle open, inter-fit, full cover; the three squares next to a drawing set all of its openings; hover syncs with the 3D view), parts-list table, URL hash sync |
 | `tests/` | Vitest; `fixtures.ts` holds the worked examples |
 
 ### Geometry rules
 
 - 1 unit = 15 mm (`BASE_UNIT`). Connector cores are 1 unit; a support between nodes `a < b` has length `b - a - 1`.
-- A rack is a stack of rows, bottom to top. Each row has a height (its vertical support length), a list of column widths (bay support lengths, left to right; each divider between bays is one unit of connector core) and a shift (units to the right of x = 0). Depth is shared.
+- A rack is a stack of rows, bottom to top. Each row has a height (its vertical support length), a list of column widths (bay support lengths, left to right; each divider between bays is one unit of connector core), a shift (units to the right of x = 0) and a `through` flag: when set, the posts of the row below continue through the frame under this row (pull-through connectors there, one long support) instead of ending in a standard connector. Depth is shared.
 - Frames sit between rows and get a connector at every column boundary of the row below and the row above; beams are split there, so a divider that stops ends in a T connector. Vertical posts run at every column boundary of their own row. Rows can differ in width and position (stepped racks).
+- Two connectors need at least 2 units of support between them, because each connector arm wraps one unit of the support. Depth, row heights and column widths are therefore 2..50, and a frame beam shorter than 2 units (dividers of neighbouring rows landing 2 units apart) is reported under the rows, drawn red in the 3D view and marked in the parts list, without blocking the rack.
 - Outer size is the widest row by `depth + 2` by the sum of `height + 1` over rows, plus 1.
-- Connector type = (axes used, arm count) as in `CONNECTOR_CONFIGS`. Continuous posts make intermediate nodes z pull-through.
+- Connector type = (axes used, arm count) as in `CONNECTOR_CONFIGS`. A through junction makes its nodes z pull-through.
 - One lock pin per occupied arm. Feet plug into the `-z` arm of every floor node.
-- Panels close openings. Every row has front and back openings per column and one left and one right opening; every frame (bottom, each shelf between rows, top) has one horizontal opening per span between its nodes, so exposed roofs of a wider lower row and shelves inside the rack can be panelled too. A panel fills its opening exactly: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Openings need at least 2 units per side to take a panel (the model asserts that); the upper bound is the support length. Panels beyond the Customizer slider range of 16 units get a note in the parts list: type the units into the Customizer or print them split. Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
-- URL hash: `v=3&d=<depth>&r=<height>:<w>.<w>[~shift]_<row>...&f=<feet>&p=<s|c>&pn=<f|b|l|r|h><at>.<index><i|f>_...` where `at` is the row index (vertical faces) or frame index (horizontal). Version 2 links (one panel type per face) expand to every opening of that face; version 1 links (single column, level positions) still open.
+- Panels close openings. Every row has front and back openings per column and one left and one right opening; every frame (bottom, each shelf between rows, top) has one horizontal opening per span between its nodes, so exposed roofs of a wider lower row and shelves inside the rack can be panelled too. A panel fills its opening exactly: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Openings need at least 2 units per side to take a panel (the model asserts that); the upper bound is the support length. A front or back bay whose top or bottom edge carries a connector between its corners (the divider of a neighbouring row ending in a T there) cannot take a standard panel either: the panel model runs its mount plates and contour walls along the whole edge, and a connector core stands 2.1 mm proud of the support into that space. Such openings are hatched in the drawings and skipped by the whole-face shortcuts. A panel that still lands on an opening no standard part fits (from an older link, or after a row was resized) never blocks the rack: it is drawn in the warning colour in the drawing, the parts list and the 3D view, and a click on it removes it. Panels beyond the Customizer slider range of 16 units get a note in the parts list: type the units into the Customizer or print them split. Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
+- URL hash: `v=4&d=<depth>&r=<height>:<w>.<w>[~shift][*]_<row>...&f=<feet>&pn=<f|b|l|r|h><at>.<index><i|f>_...&n<row>=<name>` where `*` marks a row whose posts continue from below, `at` is the row index (vertical faces) or frame index (horizontal), and `n0`, `n1`, ... carry optional row names (up to 40 characters). Version 3 links (one post mode for the whole rack), version 2 links (one panel type per face) and version 1 links (single column, level positions) still open.
 
 ### Preview
 

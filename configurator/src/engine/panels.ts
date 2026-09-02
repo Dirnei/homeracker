@@ -82,10 +82,41 @@ export function groupOpenings(config: RackConfig, group: FaceGroup): Opening[] {
   }
 }
 
-/** Whether a panel exists for this opening: both sides within the panel model limits (2..16 units). */
+/** Whether a panel exists for this opening: both sides within the panel model limits. */
 export function canClose(opening: Pick<Opening, "length" | "height">): boolean {
   const ok = (v: number) => v >= LIMITS.panel.min && v <= LIMITS.panel.max;
   return ok(opening.length) && ok(opening.height);
+}
+
+export interface EdgeConnector {
+  edge: "bottom" | "top";
+  x: number;
+}
+
+/**
+ * Frame nodes strictly inside the bottom or top edge of a front/back bay: the divider of a
+ * neighbouring row ending in a T connector there. The panel model has no room for a connector core
+ * between the corners (mount plates and contour walls run the whole edge), so no standard panel fits.
+ */
+export function edgeConnectors(config: RackConfig, opening: Opening): EdgeConnector[] {
+  if (opening.face !== "front" && opening.face !== "back") return [];
+  const levels = frames(config);
+  const left = opening.origin[0];
+  const right = left + opening.length + 1;
+  const inside = (xs: number[]) => xs.filter((x) => x > left && x < right);
+  return [
+    ...inside(levels[opening.at]?.xs ?? []).map((x) => ({ edge: "bottom" as const, x })),
+    ...inside(levels[opening.at + 1]?.xs ?? []).map((x) => ({ edge: "top" as const, x })),
+  ];
+}
+
+/** Why no standard panel fits this opening, or null when one does. */
+export function closeReason(config: RackConfig, opening: Opening): string | null {
+  if (!canClose(opening)) return `no panel fits (${LIMITS.panel.min} to ${LIMITS.panel.max} units per side)`;
+  const hits = edgeConnectors(config, opening);
+  if (hits.length === 0) return null;
+  const edges = [...new Set(hits.map((h) => h.edge))].join(" and ");
+  return `connector inside the ${edges} edge: no standard panel fits; align the dividers of the rows above and below`;
 }
 
 function specMatches(spec: PanelSpec, opening: Pick<Opening, "face" | "at" | "index">): boolean {
@@ -96,12 +127,17 @@ export function panelAt(config: RackConfig, opening: Pick<Opening, "face" | "at"
   return config.panels.find((p) => specMatches(p, opening))?.type;
 }
 
-/** Close (or, with null, open) every closable opening of a face group. Other panels are kept. */
-export function closeFace(config: RackConfig, group: FaceGroup, type: PanelType | null): RackConfig {
-  const targets = groupOpenings(config, group).filter((o) => type === null || canClose(o));
-  const rest = config.panels.filter((p) => !targets.some((o) => specMatches(p, o)));
-  const added: PanelSpec[] = type ? targets.map((o) => ({ face: o.face, at: o.at, index: o.index, type })) : [];
+/** Close (or, with null, open) the given openings; unclosable ones are skipped, other panels are kept. */
+export function closeOpenings(config: RackConfig, targets: Opening[], type: PanelType | null): RackConfig {
+  const affected = targets.filter((o) => type === null || closeReason(config, o) === null);
+  const rest = config.panels.filter((p) => !affected.some((o) => specMatches(p, o)));
+  const added: PanelSpec[] = type ? affected.map((o) => ({ face: o.face, at: o.at, index: o.index, type })) : [];
   return { ...config, panels: [...rest, ...added] };
+}
+
+/** Close (or, with null, open) every closable opening of a face group. */
+export function closeFace(config: RackConfig, group: FaceGroup, type: PanelType | null): RackConfig {
+  return closeOpenings(config, groupOpenings(config, group), type);
 }
 
 /** Cycle one opening: open -> inter-fit -> full cover -> open. */
@@ -119,6 +155,7 @@ export function buildPanels(config: RackConfig, all: Opening[] = openings(config
   for (const opening of all) {
     const type = panelAt(config, opening);
     if (!type) continue;
+    const blocked = closeReason(config, opening);
     panels.push({
       id: `p:${opening.id}`,
       face: opening.face,
@@ -126,6 +163,7 @@ export function buildPanels(config: RackConfig, all: Opening[] = openings(config
       ...panelSize(opening.length, opening.height),
       origin: opening.origin,
       normal: opening.normal,
+      ...(blocked ? { blocked } : {}),
     });
   }
   return panels;

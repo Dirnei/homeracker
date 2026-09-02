@@ -28,7 +28,7 @@ Web surfaces add a neutral dark scale around the palette:
 | `--text` | `#e8e6df` | Body text |
 | `--muted` | `#a3a49f` | Secondary text, labels |
 | `--link` | `#4d95ff` | Links (HR_BLUE lifted for contrast on dark) |
-| `--danger` | `#ff4d6a` | Validation errors (HR_RED lifted for contrast on dark) |
+| `--danger` | `#ff4d6a` | Validation errors; parts that do not fit the print bed, in lists and in 3D (HR_RED lifted for contrast on dark) |
 | panel plate | `#d9d6cc` | Panels in 3D previews: a matte bone white, distinct from yellow supports and white pull-through cores |
 
 Rules: yellow is the only loud colour on a page. Blue is for links and connector cores, red only for errors and feet. Body text stays at 4.5:1 contrast or better against its background.

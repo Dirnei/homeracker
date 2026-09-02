@@ -1,7 +1,6 @@
 export type Axis = "x" | "y" | "z";
 export type Dir = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
 export type PanelType = "interfit" | "fullcover";
-export type PostMode = "segmented" | "continuous";
 export type Vec3 = readonly [number, number, number];
 
 /** Where an opening sits: a vertical face of a row, or a horizontal frame (bottom, shelf, top). */
@@ -18,6 +17,13 @@ export interface RackRow {
   columns: number[];
   /** How many units the row starts to the right of x = 0. */
   shift: number;
+  /**
+   * Posts continue from the row below through the frame under this row (pull-through connectors there)
+   * instead of ending in a standard connector and starting a new support. Ignored on the bottom row.
+   */
+  through: boolean;
+  /** Optional label shown in the editor and the parts list, e.g. "Servers". */
+  name?: string;
 }
 
 /** A closed opening. `at` is the row index for vertical faces and the frame index for horizontal ones. */
@@ -35,7 +41,6 @@ export interface RackConfig {
   /** Rows from bottom to top. At least one. */
   rows: RackRow[];
   feet: boolean;
-  posts: PostMode;
   panels: PanelSpec[];
 }
 
@@ -87,6 +92,16 @@ export interface RackPanel {
   unitsY: number;
   origin: Vec3;
   normal: Dir;
+  /** Why no standard panel fits this opening, when the spec was kept anyway (e.g. from an older link). */
+  blocked?: string;
+}
+
+/** Something that cannot be assembled as configured, tied to the rows that cause it. */
+export interface RackProblem {
+  message: string;
+  /** Row indices involved, bottom to top. */
+  rows: number[];
+  supportIds: string[];
 }
 
 export interface RackModel {
@@ -95,6 +110,7 @@ export interface RackModel {
   supports: RackSupport[];
   openings: Opening[];
   panels: RackPanel[];
+  problems: RackProblem[];
   /** Outer size in units. */
   extent: Vec3;
 }
@@ -107,6 +123,8 @@ export interface BomLine {
   label: string;
   qty: number;
   note?: string;
+  /** Bounding box of one printed part in millimetres, for print-bed checks. */
+  size?: readonly [number, number, number];
   scad?: { part: string; params: Record<string, string | number | boolean> };
 }
 

@@ -5,8 +5,12 @@ import { HR_BLUE, HR_CHARCOAL, HR_RED, HR_WHITE, HR_YELLOW } from "../engine/con
 const PANEL_COLOR = "#d9d6cc";
 import type { BoxKind } from "./layout";
 
-export function createMaterials(): Record<BoxKind, MeshStandardMaterial> {
+/** Parts that do not fit the print bed are drawn in the warning red. */
+export const FLAGGED_COLOR = "#ff4d6a";
+
+export function createMaterials(): Record<BoxKind | "flagged", MeshStandardMaterial> {
   return {
+    flagged: new MeshStandardMaterial({ color: FLAGGED_COLOR, emissive: FLAGGED_COLOR, emissiveIntensity: 0.25, roughness: 0.6 }),
     support: new MeshStandardMaterial({ color: HR_YELLOW }),
     core: new MeshStandardMaterial({ color: HR_BLUE }),
     "core-pullthrough": new MeshStandardMaterial({ color: HR_WHITE }),

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
 import type { RackModel, RackNode } from "../src/engine/types";
-import { exampleA, exampleB, invariantRack, smallestRack, stepped, twoColumns } from "./fixtures";
+import { exampleA, exampleB, invariantRack, mixedPosts, shortBeam, smallestRack, stepped, twoColumns } from "./fixtures";
 
 const sorted = (node: RackNode) => [...node.arms].sort().join(",");
 const nodesAtZ = (model: RackModel, z: number) => model.nodes.filter((n) => n.pos[2] === z);
@@ -35,8 +35,16 @@ describe("buildModel frame", () => {
     expect(lengths(buildModel(exampleA), "z")).toEqual([4, 4, 4, 4, 5, 5, 5, 5]);
   });
 
-  test("continuous posts run the full height", () => {
+  test("posts run through a junction the row above lets them through", () => {
     expect(lengths(buildModel(exampleB), "z")).toEqual([10, 10, 10, 10]);
+  });
+
+  test("posts merge only across junctions marked through", () => {
+    // rows of 3: bottom junction through, top junction split -> posts of 7 and 3 units
+    expect(lengths(buildModel(mixedPosts), "z")).toEqual([3, 3, 3, 3, 7, 7, 7, 7]);
+    const model = buildModel(mixedPosts);
+    expect(nodesAtZ(model, 4).every((n) => n.pullThrough === "z")).toBe(true);
+    expect(nodesAtZ(model, 8).every((n) => n.pullThrough === "none")).toBe(true);
   });
 
   test("a continuous post occupies the arms of the nodes it passes through", () => {
@@ -50,10 +58,19 @@ describe("buildModel frame", () => {
     expect(model.extent[2]).toBe(9);
   });
 
-  test("the smallest rack has eight nodes and one-unit supports", () => {
+  test("the smallest rack has eight nodes and two-unit supports", () => {
     const model = buildModel(smallestRack);
     expect(model.nodes).toHaveLength(8);
-    expect(model.supports.every((s) => s.length === 1)).toBe(true);
+    expect(model.supports.every((s) => s.length === 2)).toBe(true);
+    expect(model.problems).toEqual([]);
+  });
+
+  test("a beam shorter than two units between two connectors is reported with the rows involved", () => {
+    const model = buildModel(shortBeam);
+    expect(model.problems).toHaveLength(1);
+    expect(model.problems[0]?.message).toMatch(/Top of Semme.*1-unit.*11.*13.*Semme.*Leberkas/);
+    expect(model.problems[0]?.supportIds).toHaveLength(2);
+    expect(model.problems[0]?.rows).toEqual([0, 1]);
   });
 });
 
@@ -80,7 +97,7 @@ describe("buildModel arms", () => {
     expect(sorted(node(buildModel(exampleA), "n:0,7,11")!)).toBe("+x,-y,-z");
   });
 
-  test("continuous posts make intermediate nodes z pull-through", () => {
+  test("through junctions make their nodes z pull-through", () => {
     const model = buildModel(exampleB);
     expect(nodesAtZ(model, 6).every((n) => n.pullThrough === "z")).toBe(true);
     expect(nodesAtZ(model, 0).every((n) => n.pullThrough === "none")).toBe(true);
@@ -117,7 +134,7 @@ describe("buildModel columns", () => {
   });
 
   test("a shifted row starts at its shift", () => {
-    const model = buildModel({ ...stepped, rows: [stepped.rows[0]!, { height: 3, columns: [3], shift: 2 }] });
+    const model = buildModel({ ...stepped, rows: [stepped.rows[0]!, { height: 3, columns: [3], shift: 2, through: false }] });
     expect(nodesAtZ(model, 8).map((n) => n.pos[0]).sort((a, b) => a - b)).toEqual([2, 2, 6, 6]);
     expect(sorted(node(model, "n:2,0,4")!)).toBe("+x,+y,+z,-x");
   });

@@ -5,11 +5,10 @@ export function defaultConfig(): RackConfig {
   return {
     depth: 6,
     rows: [
-      { height: 5, columns: [6], shift: 0 },
-      { height: 4, columns: [6], shift: 0 },
+      { height: 5, columns: [6], shift: 0, through: false },
+      { height: 4, columns: [6], shift: 0, through: false },
     ],
     feet: true,
-    posts: "segmented",
     panels: [],
   };
 }

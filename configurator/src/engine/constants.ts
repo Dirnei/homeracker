@@ -11,7 +11,13 @@ export const HR_CHARCOAL = "#333333";
 export const HR_WHITE = "#f0f0f0";
 
 export const LIMITS = {
+  /** The support part itself (a foot insert uses a 1-unit one). */
   support: { min: 1, max: 50 },
+  /**
+   * A support between two connectors: each arm wraps one unit of it, so two connectors need at least
+   * two units between them. Applies to depth, row heights, column widths and any beam on a frame.
+   */
+  span: { min: 2, max: 50 },
   /** panel.scad only requires 2 units per side; the upper bound is the support length. */
   panel: { min: 2, max: 50 },
   /** The Customizer sliders in panel.scad stop at 16; larger panels need the value typed in or a split print. */

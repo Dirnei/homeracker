@@ -1,10 +1,9 @@
 import { closeFace } from "./panels";
-import type { FaceGroup, PanelFace, PanelSpec, PanelType, PostMode, RackConfig, RackRow } from "./types";
+import type { FaceGroup, PanelFace, PanelSpec, PanelType, RackConfig, RackRow } from "./types";
 
 const FACE_CODE: Record<PanelFace, string> = { front: "f", back: "b", left: "l", right: "r", horizontal: "h" };
 const GROUPS_V2: FaceGroup[] = ["front", "back", "left", "right", "top", "bottom"];
 const PANEL_CODE: Record<PanelType, string> = { interfit: "i", fullcover: "f" };
-const POST_CODE: Record<PostMode, string> = { segmented: "s", continuous: "c" };
 
 function keyOf<T extends string>(codes: Record<T, string>, code: string): T | null {
   const entry = (Object.entries(codes) as [T, string][]).find(([, c]) => c === code);
@@ -26,17 +25,17 @@ function integer(value: string | undefined): number | null {
   return Number(value);
 }
 
-/** Row token: `height:width.width[~shift]`, rows joined with `_`. */
+/** Row token: `height:width.width[~shift][*]`; `*` marks posts continuing from the row below. Rows joined with `_`. */
 function encodeRow(row: RackRow): string {
-  return `${row.height}:${row.columns.join(".")}${row.shift ? `~${row.shift}` : ""}`;
+  return `${row.height}:${row.columns.join(".")}${row.shift ? `~${row.shift}` : ""}${row.through ? "*" : ""}`;
 }
 
 function decodeRow(token: string): RackRow | null {
-  const match = /^(\d+):([\d.]+)(?:~(\d+))?$/.exec(token);
+  const match = /^(\d+):([\d.]+)(?:~(\d+))?(\*)?$/.exec(token);
   if (!match) return null;
   const columns = match[2]!.split(".").map(integer);
   if (columns.some((c) => c === null)) return null;
-  return { height: Number(match[1]), columns: columns as number[], shift: match[3] ? Number(match[3]) : 0 };
+  return { height: Number(match[1]), columns: columns as number[], shift: match[3] ? Number(match[3]) : 0, through: match[4] === "*" };
 }
 
 /** Panel token: face letter, position, `.`, index, type letter: `f0.1i`. */
@@ -53,22 +52,34 @@ function decodePanel(token: string): PanelSpec | null {
   return { face, at: Number(match[2]), index: Number(match[3]), type };
 }
 
+/** Longest row name kept in a link. */
+export const MAX_ROW_NAME = 40;
+
 export function encodeConfig(config: RackConfig): string {
   const params: [string, string][] = [
-    ["v", "3"],
+    ["v", "4"],
     ["d", String(config.depth)],
     ["r", config.rows.map(encodeRow).join("_")],
     ["f", config.feet ? "1" : "0"],
-    ["p", POST_CODE[config.posts]],
   ];
   if (config.panels.length > 0) params.push(["pn", config.panels.map(encodePanel).join("_")]);
-  const enc = (v: string) => encodeURIComponent(v).replace(/%3A/g, ":");
+  config.rows.forEach((row, i) => {
+    if (row.name) params.push([`n${i}`, row.name.slice(0, MAX_ROW_NAME)]);
+  });
+  const enc = (v: string) => encodeURIComponent(v).replace(/%3A/g, ":").replace(/%2A/g, "*");
   return params.map(([k, v]) => `${enc(k)}=${enc(v)}`).join("&");
 }
 
-function decodePosts(params: Map<string, string>): Pick<RackConfig, "feet" | "posts"> | null {
-  const posts = keyOf(POST_CODE, params.get("p") ?? "");
-  return posts === null ? null : { feet: params.get("f") === "1", posts };
+/** Versions 1 to 3 had one post mode for the whole rack: continuous meant every junction lets posts through. */
+function legacyPosts(params: Map<string, string>): boolean | null {
+  const code = params.get("p") ?? "";
+  if (code === "s") return false;
+  if (code === "c") return true;
+  return null;
+}
+
+function applyThrough(rows: RackRow[], through: boolean): RackRow[] {
+  return rows.map((row, i) => ({ ...row, through: through && i > 0 }));
 }
 
 /** Versions 1 and 2 stored one panel type per face; expand it to every opening of that face. */
@@ -88,14 +99,14 @@ function decodeV1(params: Map<string, string>): RackConfig | null {
   const width = integer(params.get("w"));
   const depth = integer(params.get("d"));
   const height = integer(params.get("h"));
-  const posts = decodePosts(params);
-  if (width === null || depth === null || height === null || posts === null) return null;
+  const through = legacyPosts(params);
+  if (width === null || depth === null || height === null || through === null) return null;
   const levelsRaw = params.get("l");
   const levels = levelsRaw ? levelsRaw.split(".").map((z) => integer(z)) : [];
   if (levels.some((z) => z === null)) return null;
   const zs = [0, ...(levels as number[]), height + 1];
-  const rows = zs.slice(1).map((z, i) => ({ height: z - (zs[i] ?? 0) - 1, columns: [width], shift: 0 }));
-  return applyFacePanels({ depth, rows, ...posts, panels: [] }, params.get("pn") ?? "");
+  const rows = zs.slice(1).map((z, i) => ({ height: z - (zs[i] ?? 0) - 1, columns: [width], shift: 0, through: false }));
+  return applyFacePanels({ depth, rows: applyThrough(rows, through), feet: params.get("f") === "1", panels: [] }, params.get("pn") ?? "");
 }
 
 function decodeRows(params: Map<string, string>): Pick<RackConfig, "depth" | "rows"> | null {
@@ -109,14 +120,25 @@ export function decodeConfig(hash: string): RackConfig | null {
   const params = parseQuery(hash.replace(/^#/, ""));
   const version = params.get("v");
   if (version === "1") return decodeV1(params);
-  if (version !== "2" && version !== "3") return null;
+  if (version !== "2" && version !== "3" && version !== "4") return null;
   const shape = decodeRows(params);
-  const posts = decodePosts(params);
-  if (!shape || !posts) return null;
-  const base: RackConfig = { ...shape, ...posts, panels: [] };
+  if (!shape) return null;
+  const feet = params.get("f") === "1";
   const raw = params.get("pn") ?? "";
-  if (version === "2") return applyFacePanels(base, raw);
+  if (version !== "4") {
+    const through = legacyPosts(params);
+    if (through === null) return null;
+    const base: RackConfig = { depth: shape.depth, rows: applyThrough(shape.rows, through), feet, panels: [] };
+    if (version === "2") return applyFacePanels(base, raw);
+    const panels = raw.split("_").filter(Boolean).map(decodePanel);
+    if (panels.some((p) => p === null)) return null;
+    return { ...base, panels: panels as PanelSpec[] };
+  }
   const panels = raw.split("_").filter(Boolean).map(decodePanel);
   if (panels.some((p) => p === null)) return null;
-  return { ...base, panels: panels as PanelSpec[] };
+  const rows = shape.rows.map((row, i) => {
+    const name = params.get(`n${i}`)?.trim().slice(0, MAX_ROW_NAME);
+    return name ? { ...row, name } : row;
+  });
+  return { depth: shape.depth, rows, feet, panels: panels as PanelSpec[] };
 }

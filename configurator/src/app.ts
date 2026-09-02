@@ -3,6 +3,7 @@ import { defaultConfig } from "./engine/defaults";
 import { bomToMarkdown } from "./engine/markdown";
 import { buildModel } from "./engine/model";
 import { togglePanel } from "./engine/panels";
+import { DEFAULT_BED, unprintable, type PrinterBed } from "./engine/printer";
 import type { RackConfig } from "./engine/types";
 import { validate } from "./engine/validate";
 import { createViewer } from "./render/scene";
@@ -14,6 +15,28 @@ import { onHashChange, readHash, shareUrl, writeHash } from "./ui/hash";
 export interface ConfiguratorOptions {
   /** Base URL of the exported part meshes; omit to draw schematic boxes. */
   partsUrl?: string;
+}
+
+const BED_STORAGE_KEY = "homeracker.printerBed";
+
+function loadBed(): PrinterBed {
+  try {
+    const raw = localStorage.getItem(BED_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_BED };
+    const parsed = JSON.parse(raw) as Partial<PrinterBed>;
+    const ok = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 50;
+    return ok(parsed.x) && ok(parsed.y) && ok(parsed.z) ? { x: parsed.x!, y: parsed.y!, z: parsed.z! } : { ...DEFAULT_BED };
+  } catch {
+    return { ...DEFAULT_BED };
+  }
+}
+
+function saveBed(bed: PrinterBed): void {
+  try {
+    localStorage.setItem(BED_STORAGE_KEY, JSON.stringify(bed));
+  } catch {
+    // Storage may be unavailable (private mode); the bed then lives for this page only.
+  }
 }
 
 /**
@@ -28,6 +51,7 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
   root.replaceChildren(el("div", { class: "cfg" }, [controls, stage, bomRoot]));
 
   let current: RackConfig = defaultConfig();
+  let bed: PrinterBed = loadBed();
 
   const viewer = createViewer(canvas, {
     partsUrl: options.partsUrl,
@@ -51,8 +75,22 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
     current = config;
     const model = buildModel(config);
     const bom = computeBom(model);
-    viewer.show(model);
-    renderBom(bomRoot, bom, () => bomToMarkdown(bom, config, shareUrl(config)));
+    const notPrintable = unprintable(bom, bed);
+    const flagged = new Set(notPrintable);
+    for (const problem of model.problems) {
+      for (const id of problem.supportIds) {
+        const support = model.supports.find((s) => s.id === id);
+        if (support) flagged.add(`support:${support.length}`);
+      }
+    }
+    form.showProblems(model.problems.map((p) => p.message));
+    viewer.show(model, flagged);
+    renderBom(bomRoot, bom, {
+      flagged,
+      unprintable: notPrintable,
+      markdown: () => bomToMarkdown(bom, config, shareUrl(config)),
+      shareUrl: () => shareUrl(config),
+    });
     writeHash(config);
     return true;
   };
@@ -63,6 +101,8 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
     () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
+        bed = form.readBed();
+        saveBed(bed);
         const result = form.read();
         if ("error" in result) showIssues(controls, [result.error]);
         else apply(result.config);
@@ -71,6 +111,7 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
     { onHover: (opening) => viewer.highlight(opening?.id ?? null) },
   );
 
+  form.writeBed(bed);
   const initial = readHash() ?? defaultConfig();
   form.write(initial);
   if (!apply(initial)) {

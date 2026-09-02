@@ -1,6 +1,7 @@
+import { LIMITS } from "./constants";
 import { frames, rowBoundaries } from "./lattice";
 import { buildPanels, openings } from "./panels";
-import type { Axis, Dir, RackConfig, RackModel, RackNode, RackSupport, Vec3 } from "./types";
+import type { Axis, Dir, RackConfig, RackModel, RackNode, RackProblem, RackSupport, Vec3 } from "./types";
 
 const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
 
@@ -38,8 +39,8 @@ class Lattice {
     this.supports.push({ id: `s:${axis}:${from.join(",")}`, axis, from, length: b - a - 1, nodeIds: [lower.id, upper.id] });
   }
 
-  /** Merge chained supports along `axis` into one per line; nodes in between become pull-through. */
-  mergeColumns(axis: Axis): void {
+  /** Merge chained supports along `axis` wherever `passes(z)` allows it; nodes passed become pull-through. */
+  mergeColumns(axis: Axis, passes: (coordinate: number) => boolean): void {
     const index = AXIS_INDEX[axis];
     const lineKey = (s: RackSupport) => s.from.filter((_, i) => i !== index).join(",");
     const lines = new Map<string, RackSupport[]>();
@@ -56,7 +57,8 @@ class Lattice {
       for (const s of chain) {
         const last = groups[groups.length - 1];
         const prev = last?.[last.length - 1];
-        if (prev && prev.from[index] + prev.length + 1 === s.from[index]) last.push(s);
+        const junction = prev ? prev.from[index] + prev.length : -1;
+        if (prev && junction + 1 === s.from[index] && passes(junction)) last.push(s);
         else groups.push([s]);
       }
       for (const group of groups) {
@@ -69,6 +71,50 @@ class Lattice {
     }
     this.supports = merged;
   }
+}
+
+/**
+ * Beams shorter than two units between two connectors cannot be assembled (each arm needs a unit).
+ * They arise when the dividers of neighbouring rows land close together on the frame between them.
+ */
+function shortBeamProblems(config: RackConfig, supports: RackSupport[]): RackProblem[] {
+  const levels = frames(config);
+  const rowName = (i: number) => config.rows[i]?.name?.trim() || `row ${i + 1}`;
+  const frameTitle = (k: number) => (k === 0 ? "Bottom" : `Top of ${rowName(k - 1)}`);
+  const byPair = new Map<string, RackProblem>();
+  for (const s of supports) {
+    if (s.length >= LIMITS.span.min) continue;
+    if (s.axis !== "x") {
+      byPair.set(s.id, {
+        message: `${s.axis === "z" ? "Posts" : "Depth supports"} of ${s.length} unit cannot be assembled: two connectors need at least ${LIMITS.span.min} units between them`,
+        rows: [],
+        supportIds: [s.id],
+      });
+      continue;
+    }
+    const k = levels.findIndex((f) => f.z === s.from[2]);
+    const a = s.from[0] - 1;
+    const b = s.from[0] + s.length;
+    const key = `${k}:${a}:${b}`;
+    const existing = byPair.get(key);
+    if (existing) {
+      existing.supportIds.push(s.id);
+      continue;
+    }
+    const owners = [k - 1, k].filter((i) => {
+      const row = config.rows[i];
+      if (!row) return false;
+      const xs = rowBoundaries(row);
+      return xs.includes(a) || xs.includes(b);
+    });
+    const names = [...new Set(owners.map(rowName))].join(" and ");
+    byPair.set(key, {
+      message: `${frameTitle(k)}: a ${s.length}-unit beam between x=${a} and x=${b}; the dividers of ${names} are too close, two connectors need at least ${LIMITS.span.min} units between them`,
+      rows: owners,
+      supportIds: [s.id],
+    });
+  }
+  return [...byPair.values()];
 }
 
 export function buildModel(config: RackConfig): RackModel {
@@ -89,7 +135,8 @@ export function buildModel(config: RackConfig): RackModel {
     for (const x of rowBoundaries(row)) for (const y of ys) lattice.support("z", [x, y, 0], bottom, top);
   });
 
-  if (config.posts === "continuous") lattice.mergeColumns("z");
+  const throughZ = new Set(config.rows.flatMap((row, i) => (i > 0 && row.through ? [levels[i]!.z] : [])));
+  if (throughZ.size > 0) lattice.mergeColumns("z", (z) => throughZ.has(z));
 
   if (config.feet) {
     for (const node of lattice.nodes.values()) {
@@ -108,6 +155,7 @@ export function buildModel(config: RackConfig): RackModel {
     supports: lattice.supports,
     openings: all,
     panels: buildPanels(config, all),
+    problems: shortBeamProblems(config, lattice.supports),
     extent: [maxX + 1, config.depth + 2, (levels[levels.length - 1]?.z ?? 0) + 1],
   };
 }

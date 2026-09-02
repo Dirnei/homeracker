@@ -21,7 +21,7 @@ export interface Diagram {
 }
 
 /**
- * Elevations of the four vertical faces and a plan view of every frame, top first.
+ * Elevations of the four vertical faces and a plan view of every frame, top first ("Top of <row>" for every frame above a row).
  * Front/back/left/right are drawn as a viewer standing in front of that face sees them;
  * plans are seen from above with the front edge at the bottom.
  */
@@ -30,7 +30,6 @@ export function faceDiagrams(config: RackConfig, all: Opening[] = openings(confi
   const extentX = Math.max(...levels.flatMap((f) => f.xs)) + 1;
   const extentY = config.depth + 2;
   const extentZ = (levels[levels.length - 1]?.z ?? 0) + 1;
-  const rowCount = config.rows.length;
 
   const elevation = (id: Opening["face"], title: string, width: number, x: (o: Opening) => number): Diagram => ({
     id,
@@ -50,7 +49,8 @@ export function faceDiagrams(config: RackConfig, all: Opening[] = openings(confi
   ];
 
   for (let k = levels.length - 1; k >= 0; k--) {
-    const title = k === 0 ? "Bottom" : k === rowCount ? "Top" : `Shelf above row ${k}`;
+    const below = config.rows[k - 1]?.name?.trim();
+    const title = k === 0 ? "Bottom" : `Top of ${below || `row ${k}`}`;
     diagrams.push({
       id: `horizontal:${k}`,
       title,

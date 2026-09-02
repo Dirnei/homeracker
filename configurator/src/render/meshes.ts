@@ -1,6 +1,7 @@
 import { BoxGeometry, BufferGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { BASE_STRENGTH, BASE_UNIT, TOLERANCE } from "../engine/constants";
+import { classifyConnector, connectorLabel } from "../engine/connector";
 import { connectorLabelOf, orientConnector } from "../engine/orientation";
 import type { Axis, Dir, RackModel, RackNode, RackPanel, Vec3 } from "../engine/types";
 import type { BoxKind } from "./layout";
@@ -91,8 +92,10 @@ const FOOT_OFFSET_UNITS = -1.55 / BASE_UNIT;
 export async function buildRealRack(
   model: RackModel,
   library: PartLibrary,
-  materials: Record<BoxKind, MeshStandardMaterial>,
+  materials: Record<BoxKind | "flagged", MeshStandardMaterial>,
+  flagged: Set<string> = new Set(),
 ): Promise<Group> {
+  const pick = (key: string, material: MeshStandardMaterial) => (flagged.has(key) ? materials.flagged : material);
   const group = new Group();
   const rackCenter = new Vector3(model.extent[0] / 2, model.extent[1] / 2, model.extent[2] / 2);
   const pending: Promise<void>[] = [];
@@ -111,13 +114,15 @@ export async function buildRealRack(
     const center = cellCenter(s.from);
     const axis = AXIS_VECTOR[s.axis];
     center.addScaledVector(axis, (s.length - 1) / 2);
-    place(`support-${s.length}`, materials.support, center, alongAxis(axis));
+    place(`support-${s.length}`, pick(`support:${s.length}`, materials.support), center, alongAxis(axis));
   }
 
   for (const n of model.nodes) {
     const core = cellCenter(n.pos);
     const { name, rotation } = connectorPartName(n);
-    place(name, n.pullThrough === "none" ? materials.core : materials["core-pullthrough"], core, rotation);
+    const spec = classifyConnector(n.arms, n.pullThrough);
+    const key = `connector:${connectorLabel({ ...spec, pullThrough: "none" })}:${spec.pullThrough}`;
+    place(name, pick(key, n.pullThrough === "none" ? materials.core : materials["core-pullthrough"]), core, rotation);
     for (const arm of n.arms) {
       if (arm === "-z" && n.foot) {
         const cell = core.clone().add(dirVector(arm));
@@ -132,7 +137,11 @@ export async function buildRealRack(
 
   // Panels are parametric in two dimensions, so each one is assembled from exported mount plates and
   // corner brackets around a plate, the way panel() assembles it.
-  for (const panel of model.panels) pending.push(panelMesh(panel, library, materials.panel).then((g) => void group.add(g)));
+  for (const panel of model.panels) {
+    // A panel no standard part fits (connector inside an edge) is drawn in the warning colour like unprintable parts.
+    const material = panel.blocked ? materials.flagged : pick(`panel:${panel.unitsX}x${panel.unitsY}:${panel.type}`, materials.panel);
+    pending.push(panelMesh(panel, library, material).then((g) => void group.add(g)));
+  }
 
   await Promise.all(pending);
   return group;

@@ -22,7 +22,8 @@ import { createMaterials } from "./materials";
 import { buildRealRack, PartLibrary } from "./meshes";
 
 export interface Viewer {
-  show(model: RackModel): void;
+  /** Draw the model; parts whose parts-list key is in `flagged` are tinted as not printable. */
+  show(model: RackModel, flagged?: Set<string>): void;
   /** Light up one opening (by id) from outside, e.g. when hovering its diagram; null clears. */
   highlight(id: string | null): void;
 }
@@ -186,10 +187,10 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
       external = id && picks ? ((picks.children as Mesh[]).find((m) => (m.userData.opening as Opening).id === id) ?? null) : null;
       paint();
     },
-    show(model) {
+    show(model, flagged = new Set<string>()) {
       const ticket = ++generation;
       void library.then(async (lib) => {
-        const group = lib ? await buildRealRack(model, lib, materials) : buildRackGroup(model, materials);
+        const group = lib ? await buildRealRack(model, lib, materials, flagged) : buildRackGroup(model, materials, flagged);
         if (ticket === generation) present(model, group);
       });
     },

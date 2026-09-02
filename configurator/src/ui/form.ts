@@ -1,12 +1,13 @@
 import { BASE_UNIT, LIMITS } from "../engine/constants";
 import { frames, rowWidth } from "../engine/lattice";
 import { faceDiagrams, type Diagram } from "../engine/diagrams";
-import { canClose, closeFace, groupOpenings, openings, panelAt, togglePanel } from "../engine/panels";
-import type { FaceGroup, Opening, PanelSpec, PanelType, PostMode, RackConfig, RackRow } from "../engine/types";
+import { closeOpenings, closeReason, openings, panelAt, togglePanel } from "../engine/panels";
+import type { Opening, PanelSpec, PanelType, RackConfig, RackRow } from "../engine/types";
+import { DEFAULT_BED, type PrinterBed } from "../engine/printer";
+import { MAX_ROW_NAME } from "../engine/url";
 import { el, qs } from "./dom";
 import { parseUnitList } from "./parse";
 
-const GROUPS: FaceGroup[] = ["front", "back", "left", "right", "top", "bottom", "shelves"];
 const TYPE_LABEL: Record<PanelType | "open", string> = { open: "open", interfit: "inter-fit", fullcover: "full cover" };
 
 export type FormResult = { config: RackConfig } | { error: string };
@@ -14,6 +15,11 @@ export type FormResult = { config: RackConfig } | { error: string };
 export interface RackForm {
   read(): FormResult;
   write(config: RackConfig): void;
+  /** Assembly problems found in the current rack, shown under the rows. */
+  showProblems(messages: string[]): void;
+  /** Print volume as entered, in millimetres; falls back to the default bed for empty or invalid fields. */
+  readBed(): PrinterBed;
+  writeBed(bed: PrinterBed): void;
   /** Highlight one opening in the diagrams (by id); null clears. */
   highlight(id: string | null): void;
 }
@@ -28,9 +34,14 @@ interface RowDraft {
   height: number;
   columns: string;
   shift: number;
+  through: boolean;
+  name: string;
+  /** UI only: the card shows a one-line summary instead of its fields. */
+  collapsed?: boolean;
 }
 
 const ICONS = {
+  chevron: "M6 4l4 4-4 4",
   up: "M4 10l4-4 4 4",
   down: "M4 6l4 4 4-4",
   copy: "M5 3h6v6H5zM3 5v7h7",
@@ -55,25 +66,12 @@ function choice(type: "checkbox" | "radio", name: string, id: string, label: str
   return el("div", { class: "field inline" }, [el("input", attrs), el("label", { for: id }, [label])]);
 }
 
-function groupField(group: FaceGroup): HTMLElement {
-  const title = group.charAt(0).toUpperCase() + group.slice(1);
-  return el("div", { class: "field" }, [
-    el("label", { for: `f-group-${group}` }, [title]),
-    el("select", { name: `group-${group}`, id: `f-group-${group}`, "data-group": group }, [
-      el("option", { value: "mixed", disabled: "", hidden: "" }, ["mixed"]),
-      el("option", { value: "" }, ["open"]),
-      el("option", { value: "interfit" }, ["inter-fit"]),
-      el("option", { value: "fullcover" }, ["full cover"]),
-    ]),
-  ]);
-}
-
 const SVG = "http://www.w3.org/2000/svg";
 
 /** Human label of an opening for tooltips and screen readers. */
-function openingLabel(opening: Opening, rowCount: number): string {
+function openingLabel(opening: Opening): string {
   if (opening.face === "horizontal") {
-    const level = opening.at === 0 ? "bottom" : opening.at === rowCount ? "top" : `shelf above row ${opening.at}`;
+    const level = opening.at === 0 ? "bottom" : `top of row ${opening.at}`;
     return `${level}, span ${opening.index + 1}`;
   }
   const bay = opening.face === "front" || opening.face === "back" ? `, bay ${opening.index + 1}` : "";
@@ -98,11 +96,17 @@ function diagramView(diagram: Diagram, config: RackConfig): HTMLElement {
   frame.setAttribute("height", String(diagram.height));
   svg.append(frame);
   for (const cell of diagram.cells) {
-    const closable = canClose(cell.opening);
+    const reason = closeReason(config, cell.opening);
+    const closable = reason === null;
     const state = panelAt(config, cell.opening) ?? "open";
-    const label = openingLabel(cell.opening, config.rows.length);
+    const label = openingLabel(cell.opening);
     const size = `${cell.opening.length}x${cell.opening.height} units`;
-    const text = closable ? `${label}: ${size}, ${TYPE_LABEL[state]}` : `${label}: ${size}, no panel fits (2 to 50 units per side)`;
+    const problem = !closable && state !== "open";
+    const text = closable
+      ? `${label}: ${size}, ${TYPE_LABEL[state]}`
+      : problem
+        ? `${label}: ${size}, ${TYPE_LABEL[state]} panel placed but ${reason}. Click to remove it.`
+        : `${label}: ${size}, ${reason}`;
     const rect = document.createElementNS(SVG, "rect");
     rect.setAttribute("x", String(cell.x));
     rect.setAttribute("y", String(cell.y));
@@ -110,28 +114,63 @@ function diagramView(diagram: Diagram, config: RackConfig): HTMLElement {
     rect.setAttribute("height", String(cell.h));
     rect.setAttribute("class", "cfg-cell");
     rect.setAttribute("data-opening", cell.opening.id);
-    rect.setAttribute("data-state", closable ? state : "blocked");
+    rect.setAttribute("data-state", closable ? state : problem ? "problem" : "blocked");
     rect.setAttribute("role", "button");
     rect.setAttribute("aria-label", text);
-    rect.setAttribute("tabindex", closable ? "0" : "-1");
+    rect.setAttribute("tabindex", closable || problem ? "0" : "-1");
     const title = document.createElementNS(SVG, "title");
     title.textContent = text;
     rect.append(title);
     svg.append(rect);
   }
-  return el("figure", { class: "cfg-face" }, [el("figcaption", {}, [diagram.title]), svg]);
+  // "All" shortcuts: set every closable opening of this drawing at once.
+  const all = el("span", { class: "cfg-face-all", role: "group", "aria-label": `${diagram.title}: set all openings` }, [
+    ...(["open", "interfit", "fullcover"] as const).map((state) =>
+      el("button", {
+        type: "button",
+        class: "cfg-open",
+        "data-state": state,
+        "data-all": state,
+        "data-diagram": diagram.id,
+        "aria-label": `${diagram.title}: all ${TYPE_LABEL[state]}`,
+        title: `All ${TYPE_LABEL[state]}`,
+      }),
+    ),
+  ]);
+  return el("figure", { class: "cfg-face" }, [el("figcaption", {}, [diagram.title, all]), svg]);
 }
 
 /** One editable row. `index` counts from the bottom; rows are listed top first to match the 3D view. */
-function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
+function rowCard(draft: RowDraft, index: number): HTMLElement {
   const id = (name: string) => `f-row-${index}-${name}`;
-  const place = index === count - 1 ? (count === 1 ? "only row" : "top") : index === 0 ? "bottom" : `row ${index + 1}`;
-  const min = String(LIMITS.support.min);
-  const max = String(LIMITS.support.max);
+  const min = String(LIMITS.span.min);
+  const max = String(LIMITS.span.max);
 
-  return el("div", { class: "cfg-row", "data-index": String(index) }, [
+  const toggle = iconButton("chevron", draft.collapsed ? "Expand row" : "Collapse row", "toggle");
+  toggle.setAttribute("aria-expanded", String(!draft.collapsed));
+  const summary = [
+    `${draft.height} high`,
+    `${draft.columns.trim() || "?"} wide`,
+    draft.shift ? `shift ${draft.shift}` : "",
+    index > 0 && draft.through ? "posts continue" : "",
+  ].filter(Boolean);
+  return el("div", { class: `cfg-row${draft.collapsed ? " is-collapsed" : ""}`, "data-index": String(index) }, [
     el("div", { class: "cfg-row-head" }, [
-      el("span", { class: "cfg-row-name" }, [`Row ${index + 1}`, el("small", {}, [` · ${place}`])]),
+      toggle,
+      el("span", { class: "cfg-row-name" }, [
+        el("input", {
+          type: "text",
+          name: "name",
+          id: id("name"),
+          class: "cfg-row-title",
+          value: draft.name,
+          maxlength: String(MAX_ROW_NAME),
+          placeholder: `Row ${index + 1}`,
+          "aria-label": `Name of row ${index + 1}`,
+          size: String(Math.max(6, Math.min(MAX_ROW_NAME, (draft.name.trim() || `Row ${index + 1}`).length + 1))),
+        }),
+      ]),
+      el("span", { class: "cfg-row-summary" }, [summary.join(" · ")]),
       el("span", { class: "cfg-row-tools" }, [
         iconButton("up", "Move row up", "up"),
         iconButton("down", "Move row down", "down"),
@@ -154,6 +193,14 @@ function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
       ]),
     ]),
     el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
+    ...(index > 0
+      ? [
+          el("div", { class: "field inline cfg-through" }, [
+            el("input", { type: "checkbox", name: "through", id: id("through"), ...(draft.through ? { checked: "" } : {}) }),
+            el("label", { for: id("through") }, ["Posts continue from the row below"]),
+          ]),
+        ]
+      : []),
   ]);
 }
 
@@ -189,39 +236,49 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
   let panels: PanelSpec[] = [];
 
   const rowList = el("div", { class: "cfg-rows" });
+  const problems = el("ul", { class: "cfg-problems", role: "status" });
   const faces = el("div", { class: "cfg-faces" });
+  /** Face groups start folded; drawings are re-rendered on every change, so the fold state lives here. */
+  const foldedGroups = new Set<string>(["Front and back", "Sides", "Tops and bottom"]);
   const addButton = el("button", { type: "button", class: "cfg-add", "data-action": "add" }, ["Add row on top"]);
+  const section = (title: string, children: (Node | string)[]) =>
+    el("details", { class: "cfg-section", open: "" }, [el("summary", {}, [title]), ...children]);
   const form = el("form", { id: "rack-form" }, [
-    el("fieldset", {}, [
-      el("legend", {}, ["Rows, top to bottom"]),
+    section("Rows, top to bottom", [
       addButton,
       rowList,
+      el("ul", { id: "issues", role: "alert" }),
+      problems,
       el("p", { class: "readout", "data-readout": "outer" }),
     ]),
-    el("fieldset", {}, [
-      el("legend", {}, ["Panels"]),
+    section("Panels", [
       el("p", { class: "cfg-legend" }, [
         el("span", { class: "cfg-open", "data-state": "open", "aria-hidden": "true" }),
         " open ",
         el("span", { class: "cfg-open", "data-state": "interfit", "aria-hidden": "true" }),
         " inter-fit ",
         el("span", { class: "cfg-open", "data-state": "fullcover", "aria-hidden": "true" }),
-        " full cover. Click an opening in a drawing or in the 3D view to cycle it.",
+        " full cover",
       ]),
       faces,
     ]),
+
     el("fieldset", {}, [
       el("legend", {}, ["Footprint"]),
-      numberField("depth", "Depth (units)", LIMITS.support.min, LIMITS.support.max),
+      numberField("depth", "Depth (units)", LIMITS.span.min, LIMITS.span.max),
     ]),
-    el("fieldset", {}, [
-      el("legend", {}, ["Structure"]),
-      choice("checkbox", "feet", "f-feet", "Feet"),
-      choice("radio", "posts", "f-posts-s", "Segmented posts", "segmented"),
-      choice("radio", "posts", "f-posts-c", "Continuous posts (pull-through)", "continuous"),
+    el("fieldset", {}, [el("legend", {}, ["Structure"]), choice("checkbox", "feet", "f-feet", "Feet")]),
+    el("fieldset", { class: "cfg-printer" }, [
+      el("legend", {}, ["Printbed size"]),
+      el("div", { class: "cfg-bed" }, [
+        ...(["x", "y", "z"] as const).map((axis) =>
+          el("div", { class: "field" }, [
+            el("label", { for: `f-bed-${axis}` }, [`${axis.toUpperCase()} (mm)`]),
+            el("input", { type: "number", name: `bed-${axis}`, id: `f-bed-${axis}`, min: "50", max: "2000", step: "1" }),
+          ]),
+        ),
+      ]),
     ]),
-    el("fieldset", {}, [el("legend", {}, ["Close whole faces"]), ...GROUPS.map(groupField)]),
-    el("ul", { id: "issues", role: "alert" }),
   ]);
   root.append(form);
 
@@ -233,7 +290,8 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     for (const d of drafts) {
       const columns = parseUnitList(d.columns);
       if (!columns) return null;
-      rows.push({ height: d.height, columns, shift: d.shift });
+      const name = d.name.trim();
+      rows.push({ height: d.height, columns, shift: d.shift, through: d.through, ...(name ? { name } : {}) });
     }
     return rows;
   };
@@ -242,31 +300,13 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
   const draftConfig = (): RackConfig | null => {
     const rows = draftRows();
     if (!rows || rows.length === 0) return null;
-    const checked = form.querySelector<HTMLInputElement>("[name=posts]:checked");
-    return {
-      depth: num("depth"),
-      rows,
-      feet: input<HTMLInputElement>("feet").checked,
-      posts: (checked?.value ?? "segmented") as PostMode,
-      panels,
-    };
-  };
-
-  const updateGroupSelects = (config: RackConfig | null) => {
-    for (const group of GROUPS) {
-      const select = qs<HTMLSelectElement>(form, `[data-group="${group}"]`);
-      const targets = config ? groupOpenings(config, group).filter(canClose) : [];
-      select.disabled = targets.length === 0;
-      const states = new Set(targets.map((o) => (config ? (panelAt(config, o) ?? "") : "")));
-      select.value = states.size === 1 ? [...states][0]! : states.size === 0 ? "" : "mixed";
-    }
+    return { depth: num("depth"), rows, feet: input<HTMLInputElement>("feet").checked, panels };
   };
 
   const updateReadouts = () => {
     qs<HTMLOutputElement>(form, '[data-readout="depth"]').textContent = `${(num("depth") + 2) * BASE_UNIT} mm outer`;
     const config = draftConfig();
     const outer = qs<HTMLElement>(form, '[data-readout="outer"]');
-    updateGroupSelects(config);
     if (!config) {
       outer.textContent = "";
       return;
@@ -282,11 +322,33 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
 
   const renderFaces = () => {
     const config = draftConfig();
-    faces.replaceChildren(...(config ? faceDiagrams(config).map((d) => diagramView(d, config)) : []));
+    if (!config) {
+      faces.replaceChildren();
+      return;
+    }
+    const diagrams = faceDiagrams(config);
+    const groups: [string, Diagram[]][] = [
+      ["Front and back", diagrams.filter((d) => d.id === "front" || d.id === "back")],
+      ["Sides", diagrams.filter((d) => d.id === "left" || d.id === "right")],
+      ["Tops and bottom", diagrams.filter((d) => d.id.startsWith("horizontal"))],
+    ];
+    faces.replaceChildren(
+      ...groups.map(([title, list]) => {
+        const group = el("details", { class: "cfg-face-group", "data-group": title, ...(foldedGroups.has(title) ? {} : { open: "" }) }, [
+          el("summary", { class: "cfg-face-group-title" }, [title]),
+          el("div", { class: "cfg-face-group-list" }, list.map((d) => diagramView(d, config))),
+        ]);
+        group.addEventListener("toggle", () => {
+          if (group.open) foldedGroups.delete(title);
+          else foldedGroups.add(title);
+        });
+        return group;
+      }),
+    );
   };
 
   const renderRows = () => {
-    const cards = drafts.map((d, i) => rowCard(d, i, drafts.length)).reverse();
+    const cards = drafts.map((d, i) => rowCard(d, i)).reverse();
     rowList.replaceChildren(...cards);
     renderFaces();
     updateReadouts();
@@ -301,8 +363,14 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
   const toggleOpening = (id: string | undefined) => {
     const config = draftConfig();
     const opening = config && openings(config).find((o) => o.id === id);
-    if (!config || !opening || !canClose(opening)) return;
-    panels = togglePanel(config, opening).panels;
+    if (!config || !opening) return;
+    if (closeReason(config, opening) !== null) {
+      // No standard panel fits: the only sensible click is to remove a panel that is already there.
+      if (!panelAt(config, opening)) return;
+      panels = closeOpenings(config, [opening], null).panels;
+    } else {
+      panels = togglePanel(config, opening).panels;
+    }
     renderFaces();
     updateReadouts();
     onChange();
@@ -312,7 +380,20 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
 
   faces.addEventListener("click", (event) => {
     const cell = cellOf(event.target);
-    if (cell) toggleOpening(cell.dataset.opening);
+    if (cell) {
+      toggleOpening(cell.dataset.opening);
+      return;
+    }
+    const all = (event.target as Element).closest<HTMLButtonElement>("button[data-all]");
+    const config = all && draftConfig();
+    if (!all || !config) return;
+    const diagram = faceDiagrams(config).find((d) => d.id === all.dataset.diagram);
+    if (!diagram) return;
+    const state = all.dataset.all as PanelType | "open";
+    panels = closeOpenings(config, diagram.cells.map((c) => c.opening), state === "open" ? null : state).panels;
+    renderFaces();
+    updateReadouts();
+    onChange();
   });
   faces.addEventListener("keydown", (event) => {
     const cell = cellOf(event.target);
@@ -335,6 +416,12 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     if (target.name === "height") draft.height = Number(target.value);
     if (target.name === "columns") draft.columns = target.value;
     if (target.name === "shift") draft.shift = Number(target.value);
+    if (target.name === "through") draft.through = (target as HTMLInputElement).checked;
+    if (target.name === "name") {
+      // The title is the input itself; grow it with its content and keep focus (no re-render).
+      draft.name = target.value;
+      target.size = Math.max(6, Math.min(MAX_ROW_NAME, (target.value.trim() || `Row ${index + 1}`).length + 1));
+    }
     changed();
   });
 
@@ -345,11 +432,17 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     const action = button.dataset.action;
     const index = Number(button.closest<HTMLElement>(".cfg-row")?.dataset.index ?? -1);
     const current = drafts[index];
+    if (action === "toggle" && current) {
+      current.collapsed = !current.collapsed;
+      renderRows();
+      return;
+    }
     if (action === "add") {
       const top = drafts[drafts.length - 1];
-      drafts.push(top ? { ...top } : { height: 4, columns: "6", shift: 0 });
+      // A freshly added row opens so it can be edited right away.
+      drafts.push(top ? { ...top, name: "", collapsed: false } : { height: 4, columns: "6", shift: 0, through: false, name: "", collapsed: false });
     } else if (action === "copy" && current) {
-      drafts.splice(index + 1, 0, { ...current });
+      drafts.splice(index + 1, 0, { ...current, name: "", collapsed: false });
       panels = remapPanels(panels, "insert", index + 1);
     } else if (action === "remove" && current && drafts.length > 1) {
       drafts.splice(index, 1);
@@ -368,22 +461,26 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
   });
 
   form.addEventListener("input", (event) => {
-    const target = event.target as HTMLElement;
-    if (rowList.contains(target)) return;
-    const group = (target as HTMLSelectElement).dataset.group as FaceGroup | undefined;
-    if (group) {
-      const config = draftConfig();
-      const value = (target as HTMLSelectElement).value as PanelType | "";
-      if (config) panels = closeFace(config, group, value || null).panels;
-      renderFaces();
-      updateReadouts();
-      onChange();
-      return;
-    }
+    if (rowList.contains(event.target as Node)) return;
     changed();
   });
 
+  const bedInput = (axis: "x" | "y" | "z") => input<HTMLInputElement>(`bed-${axis}`);
+
   return {
+    showProblems(messages) {
+      problems.replaceChildren(...messages.map((m) => el("li", {}, [m])));
+    },
+    readBed() {
+      const value = (axis: "x" | "y" | "z") => {
+        const n = Number(bedInput(axis).value);
+        return Number.isFinite(n) && n >= 50 ? n : DEFAULT_BED[axis];
+      };
+      return { x: value("x"), y: value("y"), z: value("z") };
+    },
+    writeBed(bed) {
+      for (const axis of ["x", "y", "z"] as const) bedInput(axis).value = String(bed[axis]);
+    },
     highlight(id) {
       for (const rect of faces.querySelectorAll<SVGRectElement>("rect[data-opening]")) {
         rect.classList.toggle("is-hot", rect.dataset.opening === id);
@@ -398,11 +495,18 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
       return { config: { ...config, panels } };
     },
     write(config) {
-      drafts = config.rows.map((r) => ({ height: r.height, columns: r.columns.join(", "), shift: r.shift }));
+      // Rows start folded so a rack of many rows stays scannable; the summary line carries the essentials.
+      drafts = config.rows.map((r) => ({
+        height: r.height,
+        columns: r.columns.join(", "),
+        shift: r.shift,
+        through: r.through,
+        name: r.name ?? "",
+        collapsed: true,
+      }));
       panels = [...config.panels];
       input<HTMLInputElement>("depth").value = String(config.depth);
       input<HTMLInputElement>("feet").checked = config.feet;
-      qs<HTMLInputElement>(form, `[name=posts][value=${config.posts}]`).checked = true;
       renderRows();
     },
   };

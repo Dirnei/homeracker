@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
-import { closeFace, openings, panelAt, panelPins, panelSize, togglePanel } from "../src/engine/panels";
+import { closeFace, closeOpenings, closeReason, edgeConnectors, openings, panelAt, panelPins, panelSize, togglePanel } from "../src/engine/panels";
 import type { PanelSpec } from "../src/engine/types";
 import { exampleA, stepped, twoColumns } from "./fixtures";
 
@@ -67,6 +67,53 @@ describe("openings", () => {
   });
 });
 
+describe("connectors inside a panel edge", () => {
+  // Bottom row 9+10 (divider at x=10), row above one 20-wide bay: the divider ends in a T connector
+  // inside the upper bay's bottom edge.
+  const offset = {
+    ...twoColumns,
+    rows: [
+      { height: 5, columns: [9, 10], shift: 0, through: false },
+      { height: 4, columns: [20], shift: 0, through: false },
+    ],
+  };
+
+  test("edgeConnectors lists frame nodes strictly inside a front or back bay's top and bottom edges", () => {
+    const upper = openings(offset).find((o) => o.id === "front:1:0")!;
+    expect(edgeConnectors(offset, upper)).toEqual([{ edge: "bottom", x: 10 }]);
+    const lowerLeft = openings(offset).find((o) => o.id === "back:0:0")!;
+    expect(edgeConnectors(offset, lowerLeft)).toEqual([]);
+  });
+
+  test("sides and horizontal openings never have edge connectors", () => {
+    const all = openings(offset);
+    for (const o of all.filter((o) => o.face === "left" || o.face === "right" || o.face === "horizontal")) {
+      expect(edgeConnectors(offset, o)).toEqual([]);
+    }
+  });
+
+  test("closeReason explains why an opening cannot take a standard panel", () => {
+    const all = openings(offset);
+    expect(closeReason(offset, all.find((o) => o.id === "front:1:0")!)).toMatch(/connector inside the bottom edge/);
+    expect(closeReason(offset, all.find((o) => o.id === "front:0:0")!)).toBeNull();
+    const tiny = openings({ ...twoColumns, rows: [{ height: 5, columns: [1, 4], shift: 0, through: false }] });
+    expect(closeReason(twoColumns, tiny.find((o) => o.id === "front:0:0")!)).toMatch(/2 to 50/);
+  });
+
+  test("whole-face actions skip openings with a connector in an edge", () => {
+    const closed = closeFace(offset, "front", "interfit");
+    expect(closed.panels.map((p) => `${p.at}:${p.index}`)).toEqual(["0:0", "0:1"]);
+  });
+
+  test("a panel placed there anyway is kept but marked", () => {
+    const model = buildModel({ ...offset, panels: [spec("front", 1, 0)] });
+    expect(model.panels[0]?.blocked).toMatch(/connector inside the bottom edge/);
+    const tiny = buildModel({ ...twoColumns, rows: [{ height: 5, columns: [1, 4], shift: 0, through: false }], panels: [spec("front", 0, 0)] });
+    expect(tiny.panels[0]?.blocked).toMatch(/2 to 50/);
+    expect(buildModel(closeFace(offset, "front", "interfit")).panels.every((p) => !p.blocked)).toBe(true);
+  });
+});
+
 describe("closeFace and togglePanel", () => {
   test("closeFace covers every opening of a face group", () => {
     const front = closeFace(exampleA, "front", "interfit");
@@ -80,15 +127,23 @@ describe("closeFace and togglePanel", () => {
   });
 
   test("closeFace skips openings that are too small or too large for a panel", () => {
-    const config = { ...twoColumns, rows: [twoColumns.rows[0]!, { height: 4, columns: [6], shift: 0 }] };
+    const config = { ...twoColumns, rows: [twoColumns.rows[0]!, { height: 4, columns: [6], shift: 0, through: false }] };
     // The shelf frame has spans of 4, 1 and 2 units; the 1-unit span cannot take a panel.
     expect(closeFace(config, "shelves", "interfit").panels.map((p) => p.index)).toEqual([0, 2]);
-    expect(closeFace({ ...twoColumns, rows: [{ height: 5, columns: [51], shift: 0 }] }, "front", "interfit").panels).toEqual([]);
+    expect(closeFace({ ...twoColumns, rows: [{ height: 5, columns: [51], shift: 0, through: false }] }, "front", "interfit").panels).toEqual([]);
   });
 
   test("closeFace with null opens the face and keeps other panels", () => {
     const config = closeFace(closeFace(exampleA, "front", "interfit"), "left", "fullcover");
     expect(closeFace(config, "front", null).panels).toEqual([spec("left", 0, 0, "fullcover"), spec("left", 1, 0, "fullcover")]);
+  });
+
+  test("closeOpenings sets an explicit list of openings, skipping unclosable ones", () => {
+    const all = openings(twoColumns);
+    const front = all.filter((o) => o.face === "front");
+    const closed = closeOpenings(twoColumns, front, "fullcover");
+    expect(closed.panels).toEqual([spec("front", 0, 0, "fullcover"), spec("front", 0, 1, "fullcover")]);
+    expect(closeOpenings(closed, front, null).panels).toEqual([]);
   });
 
   test("togglePanel cycles open, inter-fit, full cover", () => {

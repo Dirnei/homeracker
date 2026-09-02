@@ -3,7 +3,7 @@ import { computeBom } from "../src/engine/bom";
 import { buildModel } from "../src/engine/model";
 import { closeFace } from "../src/engine/panels";
 import type { Bom, RackConfig } from "../src/engine/types";
-import { exampleA, exampleB, invariantRack, smallestRack, stepped, twoColumns } from "./fixtures";
+import { exampleA, exampleB, invariantRack, shortBeam, smallestRack, stepped, twoColumns } from "./fixtures";
 
 const bomOf = (config: RackConfig): Bom => computeBom(buildModel(config));
 const qty = (bom: Bom, key: string) => bom.lines.find((l) => l.key === key)?.qty ?? 0;
@@ -38,7 +38,7 @@ describe("computeBom example A (segmented)", () => {
   });
 });
 
-describe("computeBom example B (continuous)", () => {
+describe("computeBom example B (posts through the middle junction)", () => {
   const bom = bomOf(exampleB);
 
   test("posts run the full height", () => {
@@ -76,16 +76,32 @@ describe("computeBom panels", () => {
   });
 
   test("small panels need extended pins for their corner mounts", () => {
-    const small = bomOf(closeFace({ ...smallestRack, depth: 3, rows: [{ height: 3, columns: [3], shift: 0 }] }, "front", "interfit"));
+    const small = bomOf(closeFace({ ...smallestRack, depth: 3, rows: [{ height: 3, columns: [3], shift: 0, through: false }] }, "front", "interfit"));
     expect(qty(small, "lockpin:panel-extended")).toBe(4);
   });
 });
 
 describe("computeBom oversize panels", () => {
   test("flags panels beyond the Customizer slider range", () => {
-    const wide = bomOf(closeFace({ ...exampleA, rows: [{ height: 5, columns: [20], shift: 0 }] }, "front", "interfit"));
+    const wide = bomOf(closeFace({ ...exampleA, rows: [{ height: 5, columns: [20], shift: 0, through: false }] }, "front", "interfit"));
     expect(wide.lines.find((l) => l.key === "panel:20x5:interfit")?.note).toMatch(/Customizer slider \(16\)/);
     expect(bomOf(closeFace(exampleA, "front", "interfit")).lines.find((l) => l.kind === "panel")?.note).toBeUndefined();
+  });
+});
+
+describe("computeBom short beams", () => {
+  test("marks 1-unit supports as impossible to assemble", () => {
+    const bom = bomOf(shortBeam);
+    expect(bom.lines.find((l) => l.key === "support:1")?.note).toMatch(/at least 2 units/);
+    expect(bomOf(exampleA).lines.find((l) => l.kind === "support")?.note).toBeUndefined();
+  });
+});
+
+describe("computeBom blocked panels", () => {
+  test("notes panels whose opening has a connector inside an edge", () => {
+    const offset = { ...exampleA, rows: [{ height: 5, columns: [9, 10], shift: 0, through: false }, { height: 4, columns: [20], shift: 0, through: false }] };
+    const bom = bomOf({ ...offset, panels: [{ face: "front", at: 1, index: 0, type: "interfit" }] });
+    expect(bom.lines.find((l) => l.kind === "panel")?.note).toMatch(/connector inside the bottom edge/);
   });
 });
 
@@ -160,15 +176,20 @@ describe("computeBom invariants", () => {
     [[2, [2, 2]], [3, [5]], [2, [1, 1, 1]]],
     [[4, [4, 4]], [4, [4]]],
   ] as const;
-  for (const posts of ["segmented", "continuous"] as const) {
+  for (const through of [false, true]) {
     for (const feet of [true, false]) {
       for (const rows of rowSets) {
-        configs.push({ depth: 7, rows: rows.map(([height, columns]) => ({ height, columns: [...columns], shift: 0 })), feet, posts, panels: [] });
+        configs.push({
+          depth: 7,
+          rows: rows.map(([height, columns], i) => ({ height, columns: [...columns], shift: 0, through: through && i > 0 })),
+          feet,
+          panels: [],
+        });
       }
     }
   }
 
-  test.each(configs.map((c) => [c.posts, c.feet, c.rows.length, c] as const))(
+  test.each(configs.map((c) => [c.rows.some((r) => r.through) ? "through" : "split", c.feet, c.rows.length, c] as const))(
     "frame pins equal 2 per support end plus pass-throughs plus feet (%s, feet %s, %s rows)",
     (_p, _f, _r, config) => {
       const model = buildModel(config);

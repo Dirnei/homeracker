@@ -17,7 +17,7 @@
   --cfg-display: var(--font-display, "Orbitron", "Segoe UI", sans-serif);
 
   display: grid;
-  grid-template-columns: 21rem minmax(0, 1fr) 23rem;
+  grid-template-columns: 27rem minmax(0, 1fr) 22rem;
   min-height: 640px;
   height: calc(100vh - 4.5rem);
   color: var(--cfg-text);
@@ -52,10 +52,48 @@
   height: 100%;
 }
 
-.cfg fieldset {
+.cfg fieldset,
+.cfg-section {
   border: 1px solid var(--cfg-line);
   padding: 0.6rem 0.9rem 0.9rem;
   margin: 0 0 1rem;
+}
+
+.cfg-section > summary {
+  font-family: var(--cfg-label);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cfg-accent);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 32px;
+}
+
+.cfg-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cfg-section > summary::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+.cfg-section[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.cfg-section[open] > summary {
+  margin-bottom: 0.6rem;
 }
 
 .cfg legend {
@@ -216,6 +254,12 @@
   border: 1px solid var(--cfg-line);
 }
 
+@media (max-width: 1200px) {
+  .cfg {
+    grid-template-columns: 23rem minmax(0, 1fr) 20rem;
+  }
+}
+
 @media (max-width: 1000px) {
   .cfg {
     grid-template-columns: minmax(0, 1fr);
@@ -256,9 +300,13 @@
 
 .cfg-row-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.2rem 0.4rem;
+}
+
+.cfg-row-tools {
+  margin-left: auto;
 }
 
 .cfg-row-name {
@@ -270,7 +318,82 @@
 }
 
 .cfg-row-name {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  overflow: hidden;
   white-space: nowrap;
+}
+
+.cfg-row-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cfg input.cfg-row-title {
+  font: inherit;
+  font-family: var(--cfg-label);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--cfg-line);
+  padding: 0 0.15rem;
+  min-height: 0;
+  height: 1.6rem;
+  max-width: 100%;
+}
+
+.cfg input.cfg-row-title::placeholder {
+  color: var(--cfg-text);
+  opacity: 0.85;
+}
+
+.cfg input.cfg-row-title:hover {
+  border-bottom-color: var(--cfg-accent);
+}
+
+.cfg input.cfg-row-title:focus-visible {
+  outline: none;
+  border-color: var(--cfg-accent);
+  background: var(--cfg-panel);
+  text-transform: none;
+}
+
+.cfg-row-tools {
+  flex: 0 0 auto;
+}
+
+.cfg-row-summary {
+  display: none;
+  flex-basis: 100%;
+  order: 10;
+  padding-left: 2.4rem;
+  font-size: 0.85rem;
+  color: var(--cfg-muted);
+}
+
+.cfg-row.is-collapsed .cfg-row-summary {
+  display: block;
+}
+
+.cfg-row.is-collapsed .cfg-row-fields,
+.cfg-row.is-collapsed .cfg-row-size,
+.cfg-row.is-collapsed .cfg-through {
+  display: none;
+}
+
+.cfg-row-head .cfg-icon[data-action="toggle"] svg {
+  transition: transform 120ms ease;
+  transform: rotate(90deg);
+}
+
+.cfg-row.is-collapsed .cfg-icon[data-action="toggle"] svg {
+  transform: rotate(0deg);
 }
 
 .cfg-row-name small {
@@ -364,6 +487,50 @@
 
 .cfg-faces {
   display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.cfg-face-group {
+  border-top: 1px solid var(--cfg-line);
+  padding-top: 0.5rem;
+}
+
+.cfg-face-group-title {
+  font-family: var(--cfg-label);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cfg-accent);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 28px;
+}
+
+.cfg-face-group-title::-webkit-details-marker {
+  display: none;
+}
+
+.cfg-face-group-title::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+.cfg-face-group[open] > .cfg-face-group-title::before {
+  transform: rotate(45deg);
+}
+
+.cfg-face-group-list {
+  display: flex;
   flex-wrap: wrap;
   gap: 0.9rem 1.2rem;
   align-items: flex-end;
@@ -424,4 +591,119 @@
 .cfg-cell.is-hot {
   stroke: var(--cfg-text);
   stroke-width: 0.4;
+}
+
+.cfg-face figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cfg-face-all {
+  display: inline-flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.cfg .cfg-face-all .cfg-open {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 0;
+  clip-path: none;
+  min-height: 0;
+}
+
+.cfg .cfg-face-all .cfg-open:hover,
+.cfg .cfg-face-all .cfg-open:focus-visible {
+  outline: 2px solid var(--cfg-text);
+  outline-offset: 1px;
+}
+
+.cfg-through {
+  margin-top: 0.4rem;
+}
+
+.cfg-through label {
+  font-size: 0.85rem;
+}
+
+/* Printer bed and printability */
+
+.cfg-bed {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.cfg-bed .field {
+  margin: 0.2rem 0 0;
+}
+
+.cfg-bom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
+.cfg .cfg-bom-actions .cfg-copy {
+  margin: 0;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+}
+
+.cfg-warning {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid var(--cfg-danger);
+  background: rgba(255, 77, 106, 0.1);
+  color: var(--cfg-text);
+  font-size: 0.9rem;
+}
+
+.cfg tr.is-unprintable td {
+  color: var(--cfg-danger);
+}
+
+.cfg tr.is-unprintable td.qty {
+  box-shadow: inset 3px 0 0 var(--cfg-danger);
+}
+
+.cfg tr.is-unprintable td.note {
+  color: var(--cfg-danger);
+  opacity: 0.9;
+}
+
+/* Plan views stack one per line so tops read top-down like the rack itself. */
+.cfg-face-group[data-group="Tops and bottom"] .cfg-face-group-list {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cfg-cell[data-state="problem"] {
+  fill: var(--cfg-danger);
+  fill-opacity: 0.7;
+  stroke: var(--cfg-danger);
+  stroke-dasharray: 0.4 0.3;
+}
+
+.cfg-problems {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cfg-problems:empty {
+  display: none;
+}
+
+.cfg-problems li {
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid var(--cfg-danger);
+  background: rgba(255, 77, 106, 0.1);
+  font-size: 0.9rem;
 }

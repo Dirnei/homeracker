@@ -3,10 +3,14 @@ import type { Bom, RackConfig } from "./types";
 export function describeConfig(config: RackConfig): string {
   const rows = [...config.rows]
     .reverse()
-    .map((row) => `${row.columns.join("+")} wide x ${row.height} high${row.shift ? ` (shift ${row.shift})` : ""}`)
+    .map((row, i, list) => {
+      const notes = [row.shift ? `shift ${row.shift}` : "", row.through && i < list.length - 1 ? "posts continue" : ""].filter(Boolean);
+      const label = row.name ? `${row.name}: ` : "";
+      return `${label}${row.columns.join("+")} wide x ${row.height} high${notes.length ? ` (${notes.join(", ")})` : ""}`;
+    })
     .join(", ");
   const feet = config.feet ? "feet" : "no feet";
-  return `depth ${config.depth} units; rows top to bottom: ${rows}; ${feet}; ${config.posts} posts`;
+  return `depth ${config.depth} units; rows top to bottom: ${rows}; ${feet}`;
 }
 
 export function bomToMarkdown(bom: Bom, config: RackConfig, shareUrl: string): string {

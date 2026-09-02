@@ -20,8 +20,8 @@ describe("faceDiagrams", () => {
       "Back",
       "Left side",
       "Right side",
-      "Top",
-      "Shelf above row 1",
+      "Top of row 2",
+      "Top of row 1",
       "Bottom",
     ]);
   });
@@ -64,6 +64,12 @@ describe("faceDiagrams", () => {
       ["horizontal:1:0", 1, 1, 3, 4],
       ["horizontal:1:1", 5, 1, 3, 4],
     ]);
+  });
+
+  test("plans above a row are titled with that row's name", () => {
+    const named = { ...stepped, rows: [{ ...stepped.rows[0]!, name: "Storage" }, { ...stepped.rows[1]!, name: "Servers" }] };
+    expect(faceDiagrams(named).find((d) => d.id === "horizontal:1")?.title).toBe("Top of Storage");
+    expect(faceDiagrams(named).find((d) => d.id === "horizontal:2")?.title).toBe("Top of Servers");
   });
 
   test("a single-row rack has no shelf diagrams", () => {

@@ -6,6 +6,8 @@ export interface Box {
   kind: BoxKind;
   center: Vec3;
   size: Vec3;
+  /** Parts-list key of the part this box belongs to, when it maps to one line. */
+  key?: string;
 }
 
 const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
@@ -53,7 +55,7 @@ export function rackBoxes(model: RackModel): Box[] {
     const i = AXIS_INDEX[s.axis];
     center[i] = s.from[i] + s.length / 2;
     size[i] = s.length;
-    boxes.push({ kind: "support", center, size });
+    boxes.push({ kind: "support", center, size, key: `support:${s.length}` });
   }
 
   for (const n of model.nodes) {
@@ -72,6 +74,6 @@ export function rackBoxes(model: RackModel): Box[] {
     }
   }
 
-  for (const p of model.panels) boxes.push(panelBox(p));
+  for (const p of model.panels) boxes.push({ ...panelBox(p), ...(p.blocked ? { key: "panel:blocked" } : {}) });
   return boxes;
 }

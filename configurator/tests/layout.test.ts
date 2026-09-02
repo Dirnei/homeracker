@@ -10,7 +10,7 @@ describe("rackBoxes", () => {
   test("a support box spans its cells", () => {
     const boxes = rackBoxes(buildModel(exampleA));
     const beam = ofKind(boxes, "support").find((b) => b.center[1] === 0.5 && b.center[2] === 0.5 && b.size[0] === 6);
-    expect(beam).toEqual({ kind: "support", center: [4, 0.5, 0.5], size: [6, 1, 1] });
+    expect(beam).toEqual({ kind: "support", center: [4, 0.5, 0.5], size: [6, 1, 1], key: "support:6" });
   });
 
   test("a vertical support is sized along z", () => {
