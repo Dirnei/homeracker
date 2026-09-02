@@ -65,7 +65,7 @@ function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
   const max = String(LIMITS.support.max);
   return el("div", { class: "cfg-row", "data-index": String(index) }, [
     el("div", { class: "cfg-row-head" }, [
-      el("span", { class: "cfg-row-name" }, [`Row ${index + 1}`, el("small", {}, [place])]),
+      el("span", { class: "cfg-row-name" }, [`Row ${index + 1}`, el("small", {}, [` · ${place}`])]),
       el("span", { class: "cfg-row-tools" }, [
         iconButton("up", "Move row up", "up"),
         iconButton("down", "Move row down", "down"),
@@ -79,7 +79,7 @@ function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
         el("input", { type: "number", name: "height", id: id("height"), min, max, step: "1", value: String(draft.height) }),
       ]),
       el("div", { class: "field wide" }, [
-        el("label", { for: id("columns") }, ["Columns (widths)"]),
+        el("label", { for: id("columns") }, ["Column widths"]),
         el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4" }),
       ]),
       el("div", { class: "field" }, [
