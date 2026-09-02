@@ -8,7 +8,7 @@ export const exampleA: RackConfig = {
   rows: [row(5, [6]), row(4, [6])],
   feet: true,
   posts: "segmented",
-  panels: {},
+  panels: [],
 };
 
 export const exampleB: RackConfig = { ...exampleA, posts: "continuous" };
@@ -19,7 +19,7 @@ export const invariantRack: RackConfig = {
   rows: [row(3, [3]), row(3, [3])],
   feet: false,
   posts: "segmented",
-  panels: {},
+  panels: [],
 };
 
 export const smallestRack: RackConfig = {
@@ -27,7 +27,7 @@ export const smallestRack: RackConfig = {
   rows: [row(1, [1])],
   feet: false,
   posts: "segmented",
-  panels: {},
+  panels: [],
 };
 
 /** One row split into two 4-unit bays by a middle divider. */
@@ -36,7 +36,7 @@ export const twoColumns: RackConfig = {
   rows: [row(5, [4, 4])],
   feet: true,
   posts: "segmented",
-  panels: {},
+  panels: [],
 };
 
 /** Wide bottom row (3+3), narrow top row (3) flush left: a stepped rack. */
@@ -45,5 +45,5 @@ export const stepped: RackConfig = {
   rows: [row(3, [3, 3]), row(3, [3])],
   feet: false,
   posts: "segmented",
-  panels: {},
+  panels: [],
 };

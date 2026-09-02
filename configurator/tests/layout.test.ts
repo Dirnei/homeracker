@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
+import { closeFace } from "../src/engine/panels";
 import { rackBoxes, type Box } from "../src/render/layout";
 import { exampleA, exampleB, smallestRack } from "./fixtures";
 
@@ -52,13 +53,13 @@ describe("rackBoxes", () => {
 
   test("side panels on a stepped rack follow the edge of their own row", async () => {
     const { stepped } = await import("./fixtures");
-    const model = buildModel({ ...stepped, panels: { right: "interfit" } });
+    const model = buildModel(closeFace(stepped, "right", "interfit"));
     const panels = ofKind(rackBoxes(model), "panel");
     expect(panels.map((b) => b.center[0])).toEqual([9 - 0.075, 5 - 0.075]);
   });
 
   test("inter-fit panels sit just inside the face, full cover just outside", () => {
-    const model = buildModel({ ...exampleA, panels: { front: "interfit", top: "fullcover" } });
+    const model = buildModel(closeFace(closeFace(exampleA, "front", "interfit"), "top", "fullcover"));
     const panels = ofKind(rackBoxes(model), "panel");
     const front = panels.find((b) => b.size[0] === 6 && b.size[2] === 5);
     expect(front).toEqual({ kind: "panel", center: [4, 0.075, 3.5], size: [6, 0.15, 5] });

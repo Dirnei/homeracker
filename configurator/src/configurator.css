@@ -335,3 +335,85 @@
   margin-top: 0.35rem;
   font-size: 0.85rem;
 }
+
+/* Opening toggles */
+
+.cfg-strips {
+  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cfg-strip {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cfg-strip-name {
+  font-family: var(--cfg-label);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+}
+
+.cfg-strip-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.cfg .cfg-open {
+  margin: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-height: 0;
+  padding: 0;
+  display: inline-block;
+  vertical-align: middle;
+  border: 2px solid var(--cfg-accent);
+  background: transparent;
+  clip-path: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.cfg .cfg-open[data-state="interfit"] {
+  background: linear-gradient(135deg, var(--cfg-accent) 50%, transparent 50%);
+}
+
+.cfg .cfg-open[data-state="fullcover"] {
+  background: var(--cfg-accent);
+}
+
+.cfg button.cfg-open:hover,
+.cfg button.cfg-open:focus-visible {
+  outline: 2px solid var(--cfg-text);
+  outline-offset: 1px;
+  background-color: var(--cfg-panel-2);
+}
+
+.cfg button.cfg-open[data-state="fullcover"]:hover {
+  background: #ffcd3a;
+}
+
+.cfg-legend {
+  margin: 0.8rem 0 0;
+  font-size: 0.85rem;
+  color: var(--cfg-muted);
+}
+
+.cfg-legend .cfg-open {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-right: 0.15rem;
+}
+
+.cfg button.cfg-open:disabled {
+  border-style: dashed;
+  border-color: var(--cfg-line);
+  cursor: not-allowed;
+}

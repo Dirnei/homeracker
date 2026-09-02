@@ -1,8 +1,7 @@
 import { LIMITS } from "./constants";
-import { faceBays } from "./lattice";
-import type { Face, RackConfig, ValidationIssue } from "./types";
+import { openings } from "./panels";
+import type { Opening, RackConfig, ValidationIssue } from "./types";
 
-const FACES: Face[] = ["front", "back", "left", "right", "top", "bottom"];
 export const MAX_ROWS = 24;
 export const MAX_COLUMNS = 12;
 
@@ -33,6 +32,16 @@ function rowIssue(config: RackConfig): ValidationIssue | null {
   return null;
 }
 
+/** Human name of an opening for messages: "front, row 1, bay 2" or "top, span 1". */
+export function describeOpening(opening: Opening, rowCount: number): string {
+  if (opening.face === "horizontal") {
+    const level = opening.at === 0 ? "bottom" : opening.at === rowCount ? "top" : `shelf above row ${opening.at}`;
+    return `${level}, span ${opening.index + 1}`;
+  }
+  const bay = opening.face === "front" || opening.face === "back" ? `, bay ${opening.index + 1}` : "";
+  return `${opening.face}, row ${opening.at + 1}${bay}`;
+}
+
 export function validate(config: RackConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   if (!isSupportLength(config.depth)) {
@@ -45,15 +54,13 @@ export function validate(config: RackConfig): ValidationIssue[] {
   if (rows) issues.push(rows);
   if (issues.length > 0) return issues;
 
-  for (const face of FACES) {
-    if (!config.panels[face]) continue;
-    const bad = faceBays(config, face).find((bay) => !isPanelSize(bay.length) || !isPanelSize(bay.height));
-    if (bad) {
-      issues.push({
-        field: "panels",
-        message: `${face} panel: bay ${bad.length}x${bad.height} is outside ${LIMITS.panel.min}..${LIMITS.panel.max} units`,
-      });
-    }
+  for (const opening of openings(config)) {
+    const closed = config.panels.some((p) => p.face === opening.face && p.at === opening.at && p.index === opening.index);
+    if (!closed || (isPanelSize(opening.length) && isPanelSize(opening.height))) continue;
+    issues.push({
+      field: "panels",
+      message: `panel on ${describeOpening(opening, config.rows.length)}: opening ${opening.length}x${opening.height} is outside ${LIMITS.panel.min}..${LIMITS.panel.max} units`,
+    });
   }
   return issues;
 }

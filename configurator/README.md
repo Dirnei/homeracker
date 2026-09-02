@@ -2,7 +2,7 @@
 
 ## 📌 What
 
-Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet, post mode and panels per face, preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
+Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet and post mode, close individual openings with panels (in the row cards or by clicking them in the 3D view), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
 
 ## 🤔 Why
 
@@ -27,7 +27,7 @@ npm run build    # static bundle in dist/, served under /configurator/
 | `src/render/` | `meshes.ts` draws real part meshes from the exported library (connectors per type and pull-through axis, supports per length, lock pins, feet); `layout.ts` + `build.ts` are the schematic box fallback; `scene.ts` picks one |
 | `src/app.ts` | `mountConfigurator(root)`: builds the controls, stage and parts list inside any element |
 | `src/configurator.css` | Component styles; reads the site design tokens, falls back to matching values standalone |
-| `src/ui/` | Form, parts-list table, URL hash sync |
+| `src/ui/` | Row editor with per-opening panel toggles and whole-face shortcuts, parts-list table, URL hash sync |
 | `tests/` | Vitest; `fixtures.ts` holds the worked examples |
 
 ### Geometry rules
@@ -38,8 +38,8 @@ npm run build    # static bundle in dist/, served under /configurator/
 - Outer size is the widest row by `depth + 2` by the sum of `height + 1` over rows, plus 1.
 - Connector type = (axes used, arm count) as in `CONNECTOR_CONFIGS`. Continuous posts make intermediate nodes z pull-through.
 - One lock pin per occupied arm. Feet plug into the `-z` arm of every floor node.
-- A panel fills the opening bounded by its supports: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Front and back get one panel per column per row, left and right one per row, top and bottom cover the bays of the top and bottom row (exposed roofs of wider lower rows are not panelled). Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
-- URL hash: `v=2&d=<depth>&r=<height>:<w>.<w>[~shift]_<row>...&f=<feet>&p=<s|c>&pn=<face>.<i|f>_...`. Version 1 links (single column, level positions) still open.
+- Panels close openings. Every row has front and back openings per column and one left and one right opening; every frame (bottom, each shelf between rows, top) has one horizontal opening per span between its nodes, so exposed roofs of a wider lower row and shelves inside the rack can be panelled too. A panel fills its opening exactly: `units_x = support length` (from the inter-fit deduction in `panel.scad`). Openings outside 2..16 units per side cannot be closed. Panel lock pins are an estimate (one per mount plate hole, plus four extended pins for corner mounts on panels 3 units or smaller) and are listed separately.
+- URL hash: `v=3&d=<depth>&r=<height>:<w>.<w>[~shift]_<row>...&f=<feet>&p=<s|c>&pn=<f|b|l|r|h><at>.<index><i|f>_...` where `at` is the row index (vertical faces) or frame index (horizontal). Version 2 links (one panel type per face) expand to every opening of that face; version 1 links (single column, level positions) still open.
 
 ### Preview
 

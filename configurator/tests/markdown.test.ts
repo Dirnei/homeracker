@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { computeBom } from "../src/engine/bom";
 import { bomToMarkdown, describeConfig } from "../src/engine/markdown";
 import { buildModel } from "../src/engine/model";
+import { closeFace } from "../src/engine/panels";
 import { exampleA, twoColumns } from "./fixtures";
 
 describe("describeConfig", () => {
@@ -14,8 +15,8 @@ describe("describeConfig", () => {
 });
 
 describe("bomToMarkdown", () => {
-  const config = { ...exampleA, panels: { top: "fullcover" as const } };
-  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=2");
+  const config = closeFace(exampleA, "top", "fullcover");
+  const md = bomToMarkdown(computeBom(buildModel(config)), config, "https://homeracker.org/configurator/#v=3");
 
   test("starts with a heading and the outer size", () => {
     expect(md).toMatch(/^# HomeRacker parts list\n/);
@@ -39,6 +40,6 @@ describe("bomToMarkdown", () => {
   });
 
   test("ends with the share link", () => {
-    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=2\)$/);
+    expect(md.trimEnd()).toMatch(/\[Open in configurator\]\(https:\/\/homeracker\.org\/configurator\/#v=3\)$/);
   });
 });

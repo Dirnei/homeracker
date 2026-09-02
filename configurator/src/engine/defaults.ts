@@ -10,6 +10,6 @@ export function defaultConfig(): RackConfig {
     ],
     feet: true,
     posts: "segmented",
-    panels: {},
+    panels: [],
   };
 }

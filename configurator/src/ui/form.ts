@@ -1,10 +1,12 @@
 import { BASE_UNIT, LIMITS } from "../engine/constants";
 import { frames, rowWidth } from "../engine/lattice";
-import type { Face, PanelType, PostMode, RackConfig, RackRow } from "../engine/types";
+import { canClose, closeFace, groupOpenings, openings, panelAt, togglePanel } from "../engine/panels";
+import type { FaceGroup, Opening, PanelSpec, PanelType, PostMode, RackConfig, RackRow } from "../engine/types";
 import { el, qs } from "./dom";
 import { parseUnitList } from "./parse";
 
-const FACES: Face[] = ["front", "back", "left", "right", "top", "bottom"];
+const GROUPS: FaceGroup[] = ["front", "back", "left", "right", "top", "bottom", "shelves"];
+const TYPE_LABEL: Record<PanelType | "open", string> = { open: "open", interfit: "inter-fit", fullcover: "full cover" };
 
 export type FormResult = { config: RackConfig } | { error: string };
 
@@ -45,11 +47,12 @@ function choice(type: "checkbox" | "radio", name: string, id: string, label: str
   return el("div", { class: "field inline" }, [el("input", attrs), el("label", { for: id }, [label])]);
 }
 
-function panelField(face: Face): HTMLElement {
-  const title = face.charAt(0).toUpperCase() + face.slice(1);
+function groupField(group: FaceGroup): HTMLElement {
+  const title = group.charAt(0).toUpperCase() + group.slice(1);
   return el("div", { class: "field" }, [
-    el("label", { for: `f-panel-${face}` }, [title]),
-    el("select", { name: `panel-${face}`, id: `f-panel-${face}` }, [
+    el("label", { for: `f-group-${group}` }, [title]),
+    el("select", { name: `group-${group}`, id: `f-group-${group}`, "data-group": group }, [
+      el("option", { value: "mixed", disabled: "", hidden: "" }, ["mixed"]),
       el("option", { value: "" }, ["open"]),
       el("option", { value: "interfit" }, ["inter-fit"]),
       el("option", { value: "fullcover" }, ["full cover"]),
@@ -57,12 +60,60 @@ function panelField(face: Face): HTMLElement {
   ]);
 }
 
+/** One toggle per opening; the visual state comes from data-state, the meaning from the label. */
+function openingButton(opening: Opening, state: PanelType | "open", label: string): HTMLButtonElement {
+  const closable = canClose(opening);
+  const text = closable
+    ? `${label}: ${TYPE_LABEL[state]}`
+    : `${label}: ${opening.length}x${opening.height} units, no panel fits (2 to 16 units per side)`;
+  const attrs: Record<string, string> = {
+    type: "button",
+    class: "cfg-open",
+    "data-opening": opening.id,
+    "data-state": state,
+    "aria-label": text,
+    title: text,
+  };
+  if (!closable) attrs.disabled = "";
+  return el("button", attrs);
+}
+
+function strip(title: string, buttons: HTMLElement[]): HTMLElement {
+  return el("div", { class: "cfg-strip" }, [
+    el("span", { class: "cfg-strip-name" }, [title]),
+    el("span", { class: "cfg-strip-cells" }, buttons),
+  ]);
+}
+
 /** One editable row. `index` counts from the bottom; rows are listed top first to match the 3D view. */
-function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
+function rowCard(draft: RowDraft, index: number, count: number, config: RackConfig | null, all: Opening[]): HTMLElement {
   const id = (name: string) => `f-row-${index}-${name}`;
   const place = index === count - 1 ? (count === 1 ? "only row" : "top") : index === 0 ? "bottom" : `row ${index + 1}`;
   const min = String(LIMITS.support.min);
   const max = String(LIMITS.support.max);
+
+  const strips: HTMLElement[] = [];
+  if (config) {
+    const state = (o: Opening) => panelAt(config, o) ?? "open";
+    const of = (face: Opening["face"], at: number) => all.filter((o) => o.face === face && o.at === at);
+    const bays = (face: "front" | "back") => of(face, index).map((o) => openingButton(o, state(o), `${face} bay ${o.index + 1}`));
+    if (index === count - 1) {
+      strips.push(strip("Top", of("horizontal", count).map((o) => openingButton(o, state(o), `top span ${o.index + 1}`))));
+    }
+    strips.push(strip("Front", bays("front")));
+    strips.push(strip("Back", bays("back")));
+    strips.push(
+      strip("Sides", [
+        ...of("left", index).map((o) => openingButton(o, state(o), "left side")),
+        ...of("right", index).map((o) => openingButton(o, state(o), "right side")),
+      ]),
+    );
+    const floor = index === 0 ? "Bottom" : "Shelf below";
+    strips.push(
+      strip(floor, of("horizontal", index).map((o) => openingButton(o, state(o), `${floor.toLowerCase()} span ${o.index + 1}`))),
+    );
+  }
+
   return el("div", { class: "cfg-row", "data-index": String(index) }, [
     el("div", { class: "cfg-row-head" }, [
       el("span", { class: "cfg-row-name" }, [`Row ${index + 1}`, el("small", {}, [` · ${place}`])]),
@@ -88,11 +139,40 @@ function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
       ]),
     ]),
     el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
+    el("div", { class: "cfg-strips" }, strips),
   ]);
+}
+
+/** Keep panel specs attached to the right rows and frames when rows are inserted, removed or swapped. */
+export function remapPanels(panels: PanelSpec[], op: "insert" | "remove" | "swap", at: number): PanelSpec[] {
+  const out: PanelSpec[] = [];
+  for (const p of panels) {
+    const vertical = p.face !== "horizontal";
+    if (op === "insert") {
+      // New row lands at index `at`; rows from `at` up and frames above `at` move up by one.
+      if (vertical && p.at >= at) out.push({ ...p, at: p.at + 1 });
+      else if (!vertical && p.at > at) out.push({ ...p, at: p.at + 1 });
+      else out.push(p);
+    } else if (op === "remove") {
+      // Row `at` and the frame above it disappear.
+      if (vertical && p.at === at) continue;
+      if (!vertical && p.at === at + 1) continue;
+      if (vertical && p.at > at) out.push({ ...p, at: p.at - 1 });
+      else if (!vertical && p.at > at + 1) out.push({ ...p, at: p.at - 1 });
+      else out.push(p);
+    } else {
+      // Rows `at` and `at + 1` trade places; the frame between them keeps its index.
+      if (vertical && p.at === at) out.push({ ...p, at: at + 1 });
+      else if (vertical && p.at === at + 1) out.push({ ...p, at });
+      else out.push(p);
+    }
+  }
+  return out;
 }
 
 export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
   let drafts: RowDraft[] = [];
+  let panels: PanelSpec[] = [];
 
   const rowList = el("div", { class: "cfg-rows" });
   const addButton = el("button", { type: "button", class: "cfg-add", "data-action": "add" }, ["Add row on top"]);
@@ -102,6 +182,14 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
       addButton,
       rowList,
       el("p", { class: "readout", "data-readout": "outer" }),
+      el("p", { class: "cfg-legend" }, [
+        el("span", { class: "cfg-open", "data-state": "open", "aria-hidden": "true" }),
+        " open ",
+        el("span", { class: "cfg-open", "data-state": "interfit", "aria-hidden": "true" }),
+        " inter-fit ",
+        el("span", { class: "cfg-open", "data-state": "fullcover", "aria-hidden": "true" }),
+        " full cover. Click an opening here or in the 3D view.",
+      ]),
     ]),
     el("fieldset", {}, [
       el("legend", {}, ["Footprint"]),
@@ -113,7 +201,7 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
       choice("radio", "posts", "f-posts-s", "Segmented posts", "segmented"),
       choice("radio", "posts", "f-posts-c", "Continuous posts (pull-through)", "continuous"),
     ]),
-    el("fieldset", {}, [el("legend", {}, ["Panels"]), ...FACES.map(panelField)]),
+    el("fieldset", {}, [el("legend", {}, ["Close whole faces"]), ...GROUPS.map(groupField)]),
     el("ul", { id: "issues", role: "alert" }),
   ]);
   root.append(form);
@@ -131,25 +219,52 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
     return rows;
   };
 
+  /** Config as currently drafted, or null while a column list is unparsable. */
+  const draftConfig = (): RackConfig | null => {
+    const rows = draftRows();
+    if (!rows || rows.length === 0) return null;
+    const checked = form.querySelector<HTMLInputElement>("[name=posts]:checked");
+    return {
+      depth: num("depth"),
+      rows,
+      feet: input<HTMLInputElement>("feet").checked,
+      posts: (checked?.value ?? "segmented") as PostMode,
+      panels,
+    };
+  };
+
+  const updateGroupSelects = (config: RackConfig | null) => {
+    for (const group of GROUPS) {
+      const select = qs<HTMLSelectElement>(form, `[data-group="${group}"]`);
+      const targets = config ? groupOpenings(config, group).filter(canClose) : [];
+      select.disabled = targets.length === 0;
+      const states = new Set(targets.map((o) => (config ? (panelAt(config, o) ?? "") : "")));
+      select.value = states.size === 1 ? [...states][0]! : states.size === 0 ? "" : "mixed";
+    }
+  };
+
   const updateReadouts = () => {
     qs<HTMLOutputElement>(form, '[data-readout="depth"]').textContent = `${(num("depth") + 2) * BASE_UNIT} mm outer`;
-    const rows = draftRows();
+    const config = draftConfig();
     const outer = qs<HTMLElement>(form, '[data-readout="outer"]');
-    if (!rows || rows.length === 0) {
+    updateGroupSelects(config);
+    if (!config) {
       outer.textContent = "";
       return;
     }
-    const width = Math.max(...rows.map((r) => r.shift + rowWidth(r)));
-    const height = (frames({ depth: num("depth"), rows, feet: false, posts: "segmented", panels: {} }).at(-1)?.z ?? 0) + 1;
-    outer.textContent = `Outer size: ${width * BASE_UNIT} x ${(num("depth") + 2) * BASE_UNIT} x ${height * BASE_UNIT} mm`;
-    rows.forEach((r, i) => {
+    const width = Math.max(...config.rows.map((r) => r.shift + rowWidth(r)));
+    const height = (frames(config).at(-1)?.z ?? 0) + 1;
+    outer.textContent = `Outer size: ${width * BASE_UNIT} x ${(config.depth + 2) * BASE_UNIT} x ${height * BASE_UNIT} mm`;
+    config.rows.forEach((r, i) => {
       const size = form.querySelector<HTMLOutputElement>(`[data-row-size="${i}"]`);
       if (size) size.textContent = `${rowWidth(r) * BASE_UNIT} mm wide, ${(r.height + 1) * BASE_UNIT} mm per row`;
     });
   };
 
   const renderRows = () => {
-    const cards = drafts.map((d, i) => rowCard(d, i, drafts.length)).reverse();
+    const config = draftConfig();
+    const all = config ? openings(config) : [];
+    const cards = drafts.map((d, i) => rowCard(d, i, drafts.length, config, all)).reverse();
     rowList.replaceChildren(...cards);
     updateReadouts();
   };
@@ -171,7 +286,18 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
   });
 
   form.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-action]");
+    const target = event.target as HTMLElement;
+    const toggle = target.closest<HTMLButtonElement>("button[data-opening]");
+    if (toggle) {
+      const config = draftConfig();
+      const opening = config && openings(config).find((o) => o.id === toggle.dataset.opening);
+      if (!config || !opening) return;
+      panels = togglePanel(config, opening).panels;
+      renderRows();
+      onChange();
+      return;
+    }
+    const button = target.closest<HTMLButtonElement>("button[data-action]");
     if (!button) return;
     const action = button.dataset.action;
     const index = Number(button.closest<HTMLElement>(".cfg-row")?.dataset.index ?? -1);
@@ -181,12 +307,16 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
       drafts.push(top ? { ...top } : { height: 4, columns: "6", shift: 0 });
     } else if (action === "copy" && current) {
       drafts.splice(index + 1, 0, { ...current });
+      panels = remapPanels(panels, "insert", index + 1);
     } else if (action === "remove" && current && drafts.length > 1) {
       drafts.splice(index, 1);
+      panels = remapPanels(panels, "remove", index);
     } else if (action === "up" && current && index < drafts.length - 1) {
       drafts.splice(index, 2, drafts[index + 1]!, current);
+      panels = remapPanels(panels, "swap", index);
     } else if (action === "down" && current && index > 0) {
       drafts.splice(index - 1, 2, current, drafts[index - 1]!);
+      panels = remapPanels(panels, "swap", index - 1);
     } else {
       return;
     }
@@ -195,29 +325,35 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
   });
 
   form.addEventListener("input", (event) => {
-    if (rowList.contains(event.target as Node)) return;
+    const target = event.target as HTMLElement;
+    if (rowList.contains(target)) return;
+    const group = (target as HTMLSelectElement).dataset.group as FaceGroup | undefined;
+    if (group) {
+      const config = draftConfig();
+      const value = (target as HTMLSelectElement).value as PanelType | "";
+      if (config) panels = closeFace(config, group, value || null).panels;
+      renderRows();
+      onChange();
+      return;
+    }
     changed();
   });
 
   return {
     read() {
-      const rows = draftRows();
-      if (!rows) return { error: "column widths must be whole numbers separated by commas" };
-      const panels: RackConfig["panels"] = {};
-      for (const face of FACES) {
-        const value = input<HTMLSelectElement>(`panel-${face}`).value as PanelType | "";
-        if (value) panels[face] = value;
-      }
-      const checked = form.querySelector<HTMLInputElement>("[name=posts]:checked");
-      const posts = (checked?.value ?? "segmented") as PostMode;
-      return { config: { depth: num("depth"), rows, feet: input<HTMLInputElement>("feet").checked, posts, panels } };
+      const config = draftConfig();
+      if (!config) return { error: "column widths must be whole numbers separated by commas" };
+      // Drop panels whose opening no longer exists after a structural edit.
+      const all = openings(config);
+      panels = panels.filter((p) => all.some((o) => o.face === p.face && o.at === p.at && o.index === p.index));
+      return { config: { ...config, panels } };
     },
     write(config) {
       drafts = config.rows.map((r) => ({ height: r.height, columns: r.columns.join(", "), shift: r.shift }));
+      panels = [...config.panels];
       input<HTMLInputElement>("depth").value = String(config.depth);
       input<HTMLInputElement>("feet").checked = config.feet;
       qs<HTMLInputElement>(form, `[name=posts][value=${config.posts}]`).checked = true;
-      for (const face of FACES) input<HTMLSelectElement>(`panel-${face}`).value = config.panels[face] ?? "";
       renderRows();
     },
   };

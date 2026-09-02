@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { computeBom } from "../src/engine/bom";
 import { buildModel } from "../src/engine/model";
+import { closeFace } from "../src/engine/panels";
 import type { Bom, RackConfig } from "../src/engine/types";
 import { exampleA, exampleB, invariantRack, smallestRack, stepped, twoColumns } from "./fixtures";
 
@@ -58,7 +59,7 @@ describe("computeBom example B (continuous)", () => {
 });
 
 describe("computeBom panels", () => {
-  const bom = bomOf({ ...exampleA, panels: { front: "interfit", back: "interfit", top: "fullcover" } });
+  const bom = bomOf(closeFace(closeFace(closeFace(exampleA, "front", "interfit"), "back", "interfit"), "top", "fullcover"));
 
   test("aggregates panels by size and type", () => {
     expect(qty(bom, "panel:6x5:interfit")).toBe(2);
@@ -75,14 +76,14 @@ describe("computeBom panels", () => {
   });
 
   test("small panels need extended pins for their corner mounts", () => {
-    const small = bomOf({ ...smallestRack, depth: 3, rows: [{ height: 3, columns: [3], shift: 0 }], panels: { front: "interfit" } });
+    const small = bomOf(closeFace({ ...smallestRack, depth: 3, rows: [{ height: 3, columns: [3], shift: 0 }] }, "front", "interfit"));
     expect(qty(small, "lockpin:panel-extended")).toBe(4);
   });
 });
 
 describe("computeBom shape", () => {
   test("orders lines by kind and supports by length descending", () => {
-    const bom = bomOf({ ...exampleA, panels: { top: "interfit" } });
+    const bom = bomOf(closeFace(exampleA, "top", "interfit"));
     expect(bom.lines.map((l) => l.kind)).toEqual([
       "support", "support", "support",
       "connector", "connector",
@@ -100,7 +101,7 @@ describe("computeBom shape", () => {
   });
 
   test("carries OpenSCAD parameters for every printable line", () => {
-    const bom = bomOf({ ...exampleB, panels: { top: "fullcover" } });
+    const bom = bomOf(closeFace(exampleB, "top", "fullcover"));
     expect(bom.lines.find((l) => l.key === "support:10")?.scad).toEqual({ part: "core/support", params: { units: 10 } });
     expect(bom.lines.find((l) => l.key === "connector:3D4W:z")?.scad).toEqual({
       part: "core/connector",
@@ -154,7 +155,7 @@ describe("computeBom invariants", () => {
   for (const posts of ["segmented", "continuous"] as const) {
     for (const feet of [true, false]) {
       for (const rows of rowSets) {
-        configs.push({ depth: 7, rows: rows.map(([height, columns]) => ({ height, columns: [...columns], shift: 0 })), feet, posts, panels: {} });
+        configs.push({ depth: 7, rows: rows.map(([height, columns]) => ({ height, columns: [...columns], shift: 0 })), feet, posts, panels: [] });
       }
     }
   }

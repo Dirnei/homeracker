@@ -1,5 +1,5 @@
 import { frames, rowBoundaries } from "./lattice";
-import { buildPanels } from "./panels";
+import { buildPanels, openings } from "./panels";
 import type { Axis, Dir, RackConfig, RackModel, RackNode, RackSupport, Vec3 } from "./types";
 
 const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
@@ -101,11 +101,13 @@ export function buildModel(config: RackConfig): RackModel {
   }
 
   const maxX = Math.max(...levels.flatMap((f) => f.xs));
+  const all = openings(config);
   return {
     config,
     nodes: [...lattice.nodes.values()],
     supports: lattice.supports,
-    panels: buildPanels(config),
+    openings: all,
+    panels: buildPanels(config, all),
     extent: [maxX + 1, config.depth + 2, (levels[levels.length - 1]?.z ?? 0) + 1],
   };
 }

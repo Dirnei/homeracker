@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { defaultConfig } from "../src/engine/defaults";
-import type { RackConfig, RackRow } from "../src/engine/types";
+import { closeFace } from "../src/engine/panels";
+import type { PanelSpec, RackConfig, RackRow } from "../src/engine/types";
 import { validate } from "../src/engine/validate";
 
 const cfg = (patch: Partial<RackConfig>): RackConfig => ({ ...defaultConfig(), ...patch });
@@ -39,15 +40,22 @@ describe("validate", () => {
     expect(issue?.message).toMatch(/row 2/i);
   });
 
-  test("limits panelled faces to bays of 2..16 units", () => {
-    expect(fields(cfg({ rows: rows([5, [17]]), panels: { front: "interfit" } }))).toEqual(["panels"]);
-    expect(fields(cfg({ rows: rows([5, [1]]), panels: { top: "fullcover" } }))).toEqual(["panels"]);
-    expect(fields(cfg({ rows: rows([1, [6]]), panels: { left: "interfit" } }))).toEqual(["panels"]);
-    expect(validate(cfg({ rows: rows([5, [17]]), panels: { left: "interfit" } }))).toEqual([]);
+  test("limits closed openings to 2..16 units (specs can still arrive from a link)", () => {
+    const front: PanelSpec = { face: "front", at: 0, index: 0, type: "interfit" };
+    const top: PanelSpec = { face: "horizontal", at: 1, index: 0, type: "fullcover" };
+    const left: PanelSpec = { face: "left", at: 0, index: 0, type: "interfit" };
+    expect(fields(cfg({ rows: rows([5, [17]]), panels: [front] }))).toEqual(["panels"]);
+    expect(fields(cfg({ rows: rows([5, [1]]), panels: [top] }))).toEqual(["panels"]);
+    expect(fields(cfg({ rows: rows([1, [6]]), panels: [left] }))).toEqual(["panels"]);
+    expect(validate(closeFace(cfg({ rows: rows([5, [17]]) }), "left", "interfit"))).toEqual([]);
   });
 
-  test("names the face in a panel issue", () => {
-    const [issue] = validate(cfg({ rows: rows([5, [17]]), panels: { back: "fullcover" } }));
-    expect(issue?.message).toMatch(/back/);
+  test("names the opening in a panel issue", () => {
+    const [issue] = validate(cfg({ rows: rows([5, [17, 3]]), panels: [{ face: "back", at: 0, index: 0, type: "fullcover" }] }));
+    expect(issue?.message).toMatch(/back.*row 1.*bay 1/i);
+  });
+
+  test("ignores panels whose opening no longer exists", () => {
+    expect(validate(cfg({ panels: [{ face: "front", at: 9, index: 0, type: "interfit" }] }))).toEqual([]);
   });
 });

@@ -1,9 +1,14 @@
 export type Axis = "x" | "y" | "z";
 export type Dir = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
-export type Face = "front" | "back" | "left" | "right" | "top" | "bottom";
 export type PanelType = "interfit" | "fullcover";
 export type PostMode = "segmented" | "continuous";
 export type Vec3 = readonly [number, number, number];
+
+/** Where an opening sits: a vertical face of a row, or a horizontal frame (bottom, shelf, top). */
+export type PanelFace = "front" | "back" | "left" | "right" | "horizontal";
+
+/** Groups of openings the UI can close in one go. */
+export type FaceGroup = "front" | "back" | "left" | "right" | "top" | "bottom" | "shelves";
 
 /** One row of the rack: a band of bays between two frames. */
 export interface RackRow {
@@ -15,6 +20,15 @@ export interface RackRow {
   shift: number;
 }
 
+/** A closed opening. `at` is the row index for vertical faces and the frame index for horizontal ones. */
+export interface PanelSpec {
+  face: PanelFace;
+  at: number;
+  /** Column index (front/back), span index (horizontal), always 0 for left/right. */
+  index: number;
+  type: PanelType;
+}
+
 export interface RackConfig {
   /** Length of the depth supports in units, shared by every row. */
   depth: number;
@@ -22,7 +36,23 @@ export interface RackConfig {
   rows: RackRow[];
   feet: boolean;
   posts: PostMode;
-  panels: Partial<Record<Face, PanelType>>;
+  panels: PanelSpec[];
+}
+
+/** An opening bounded by supports on all four sides that a panel can close. */
+export interface Opening {
+  id: string;
+  face: PanelFace;
+  at: number;
+  index: number;
+  /** Horizontal support length bounding the opening. */
+  length: number;
+  /** Vertical (or depth, for horizontal openings) support length bounding the opening. */
+  height: number;
+  /** Node at the near corner of the opening (min x, y, z). */
+  origin: Vec3;
+  /** Outward normal: where a full-cover panel sits. */
+  normal: Dir;
 }
 
 export interface ConnectorSpec {
@@ -51,11 +81,10 @@ export interface RackSupport {
 
 export interface RackPanel {
   id: string;
-  face: Face;
+  face: PanelFace;
   type: PanelType;
   unitsX: number;
   unitsY: number;
-  /** Lattice position (min x, y, z) of the node at the bay's near corner. */
   origin: Vec3;
   normal: Dir;
 }
@@ -64,6 +93,7 @@ export interface RackModel {
   config: RackConfig;
   nodes: RackNode[];
   supports: RackSupport[];
+  openings: Opening[];
   panels: RackPanel[];
   /** Outer size in units. */
   extent: Vec3;
