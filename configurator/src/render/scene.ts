@@ -23,6 +23,8 @@ import { buildRealRack, PartLibrary } from "./meshes";
 
 export interface Viewer {
   show(model: RackModel): void;
+  /** Light up one opening (by id) from outside, e.g. when hovering its diagram; null clears. */
+  highlight(id: string | null): void;
 }
 
 export interface ViewerOptions {
@@ -30,6 +32,8 @@ export interface ViewerOptions {
   partsUrl?: string;
   /** Called when the user clicks an opening in the 3D view. */
   onOpening?: (opening: Opening) => void;
+  /** Called when the pointer enters or leaves an opening in the 3D view. */
+  onHover?: (opening: Opening | null) => void;
 }
 
 /** Invisible pick plane per opening; hovered ones light up. */
@@ -97,13 +101,22 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     return (hit?.object as Mesh | undefined) ?? null;
   };
 
-  const setHovered = (mesh: Mesh | null) => {
-    if (hovered === mesh) return;
-    if (hovered) (hovered.material as MeshBasicMaterial).opacity = 0;
-    hovered = mesh;
-    if (hovered) (hovered.material as MeshBasicMaterial).opacity = 0.28;
+  let external: Mesh | null = null;
+  const paint = () => {
+    if (!picks) return;
+    for (const child of picks.children) {
+      const mesh = child as Mesh;
+      (mesh.material as MeshBasicMaterial).opacity = mesh === hovered || mesh === external ? 0.28 : 0;
+    }
     canvas.style.cursor = hovered ? "pointer" : "";
     render();
+  };
+
+  const setHovered = (mesh: Mesh | null) => {
+    if (hovered === mesh) return;
+    hovered = mesh;
+    paint();
+    options.onHover?.(mesh ? (mesh.userData.opening as Opening) : null);
   };
 
   if (options.onOpening) {
@@ -156,6 +169,7 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     rack = group;
     if (picks) scene.remove(picks);
     hovered = null;
+    external = null;
     picks = new Group();
     if (options.onOpening) for (const opening of model.openings) picks.add(openingPlane(opening));
     scene.add(picks);
@@ -166,6 +180,10 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
   };
 
   return {
+    highlight(id) {
+      external = id && picks ? ((picks.children as Mesh[]).find((m) => (m.userData.opening as Opening).id === id) ?? null) : null;
+      paint();
+    },
     show(model) {
       const ticket = ++generation;
       void library.then(async (lib) => {

@@ -1,9 +1,9 @@
 import { BoxGeometry, BufferGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3 } from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
-import { BASE_UNIT } from "../engine/constants";
+import { BASE_STRENGTH, BASE_UNIT, TOLERANCE } from "../engine/constants";
 import { connectorLabelOf, orientConnector } from "../engine/orientation";
-import type { Axis, Dir, RackModel, RackNode, Vec3 } from "../engine/types";
-import { rackBoxes, type BoxKind } from "./layout";
+import type { Axis, Dir, RackModel, RackNode, RackPanel, Vec3 } from "../engine/types";
+import type { BoxKind } from "./layout";
 
 interface Manifest {
   parts: Record<string, { file: string }>;
@@ -130,18 +130,9 @@ export async function buildRealRack(
     }
   }
 
-  // Panels stay schematic: they are parametric in two dimensions, so there is no mesh library for them.
-  for (const box of rackBoxes(model)) {
-    if (box.kind !== "panel") continue;
-    pending.push(
-      Promise.resolve().then(() => {
-        const mesh = new Mesh(unitBox(), materials.panel);
-        mesh.position.set(box.center[0], box.center[1], box.center[2]);
-        mesh.scale.set(box.size[0], box.size[1], box.size[2]);
-        group.add(mesh);
-      }),
-    );
-  }
+  // Panels are parametric in two dimensions, so they are built from the panel model's dimensions
+  // instead of loaded: plate, edge mount plates and corner mounts, inset (inter-fit) or overlapping (full cover).
+  for (const panel of model.panels) group.add(panelMesh(panel, materials.panel));
 
   await Promise.all(pending);
   return group;
@@ -149,6 +140,68 @@ export async function buildRealRack(
 
 const unitBoxGeometry = new BoxGeometry(1, 1, 1);
 
-function unitBox(): BufferGeometry {
-  return unitBoxGeometry;
+/** Panel geometry in units, from models/panel/lib/panel.scad. */
+const MM = 1 / BASE_UNIT;
+const PLATE = BASE_STRENGTH * MM;
+const INTERFIT_DEDUCTION = (2 * BASE_STRENGTH + TOLERANCE) * MM;
+const CORNER_MOUNT = (BASE_UNIT - BASE_STRENGTH) * MM;
+
+/**
+ * A panel as the OpenSCAD model shapes it, placed on its opening. Local axes: L along the opening's
+ * length, H along its height, N along the outward normal; every box is expressed in world space directly.
+ */
+function panelMesh(panel: RackPanel, material: MeshStandardMaterial): Group {
+  const group = new Group();
+  const n = AXES.indexOf(panel.normal[1] as Axis);
+  const sign = panel.normal[0] === "+" ? 1 : -1;
+  const [l, h] = [0, 1, 2].filter((i) => i !== n) as [number, number];
+  const originN = panel.origin[n] ?? 0;
+  const plane = sign > 0 ? originN + 1 : originN;
+  const oL = (panel.origin[l] ?? 0) + 1;
+  const oH = (panel.origin[h] ?? 0) + 1;
+  const Lu = panel.unitsX;
+  const Hu = panel.unitsY;
+
+  const box = (cl: number, ch: number, cn: number, sl: number, sh: number, sn: number) => {
+    const mesh = new Mesh(unitBoxGeometry, material);
+    const pos = [0, 0, 0];
+    const size = [0, 0, 0];
+    pos[l] = cl;
+    pos[h] = ch;
+    pos[n] = cn;
+    size[l] = sl;
+    size[h] = sh;
+    size[n] = sn;
+    mesh.position.set(pos[0]!, pos[1]!, pos[2]!);
+    mesh.scale.set(size[0]!, size[1]!, size[2]!);
+    group.add(mesh);
+  };
+
+  if (panel.type === "interfit") {
+    // Inset plate flush with the outer face of the supports.
+    box(oL + Lu / 2, oH + Hu / 2, plane - (sign * PLATE) / 2, Lu - INTERFIT_DEDUCTION, Hu - INTERFIT_DEDUCTION, PLATE);
+  } else {
+    // Overlapping plate outside the supports, half a unit past the opening on every side.
+    box(oL + Lu / 2, oH + Hu / 2, plane + (sign * PLATE) / 2, Lu + 1, Hu + 1, PLATE);
+  }
+
+  // Mount plates hug the bounding supports one unit deep; only edges longer than 2 units get one.
+  const depthCenter = plane - sign * 0.5;
+  if (Lu > 2) {
+    box(oL + Lu / 2, oH + PLATE / 2, depthCenter, Lu - 2, PLATE, 1);
+    box(oL + Lu / 2, oH + Hu - PLATE / 2, depthCenter, Lu - 2, PLATE, 1);
+  }
+  if (Hu > 2) {
+    box(oL + PLATE / 2, oH + Hu / 2, depthCenter, PLATE, Hu - 2, 1);
+    box(oL + Lu - PLATE / 2, oH + Hu / 2, depthCenter, PLATE, Hu - 2, 1);
+  }
+  // Corner mounts reach the lock-pin holes inside the connector arms.
+  for (const cl of [oL + CORNER_MOUNT / 2, oL + Lu - CORNER_MOUNT / 2]) {
+    for (const ch of [oH + CORNER_MOUNT / 2, oH + Hu - CORNER_MOUNT / 2]) {
+      box(cl, ch, depthCenter, CORNER_MOUNT, CORNER_MOUNT, 1);
+    }
+  }
+  return group;
 }
+
+const AXES: Axis[] = ["x", "y", "z"];

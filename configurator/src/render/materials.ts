@@ -9,6 +9,6 @@ export function createMaterials(): Record<BoxKind, MeshStandardMaterial> {
     "core-pullthrough": new MeshStandardMaterial({ color: HR_WHITE }),
     arm: new MeshStandardMaterial({ color: HR_CHARCOAL }),
     foot: new MeshStandardMaterial({ color: HR_RED }),
-    panel: new MeshStandardMaterial({ color: HR_GREEN, transparent: true, opacity: 0.6 }),
+    panel: new MeshStandardMaterial({ color: HR_GREEN, transparent: true, opacity: 0.85, roughness: 0.7 }),
   };
 }

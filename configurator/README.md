@@ -2,7 +2,7 @@
 
 ## 📌 What
 
-Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet and post mode, close individual openings with panels (in the row cards or by clicking them in the 3D view), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
+Browser-only rack configurator published at <https://homeracker.org/configurator/>. Define a rack as a stack of rows (each with its own height and column widths), set depth, feet and post mode, close individual openings with panels (in to-scale face drawings or by clicking them in the 3D view), preview it, and get the parts list to print. The config lives in the URL hash, so a link is a saved rack.
 
 ## 🤔 Why
 
@@ -27,7 +27,8 @@ npm run build    # static bundle in dist/, served under /configurator/
 | `src/render/` | `meshes.ts` draws real part meshes from the exported library (connectors per type and pull-through axis, supports per length, lock pins, feet); `layout.ts` + `build.ts` are the schematic box fallback; `scene.ts` picks one |
 | `src/app.ts` | `mountConfigurator(root)`: builds the controls, stage and parts list inside any element |
 | `src/configurator.css` | Component styles; reads the site design tokens, falls back to matching values standalone |
-| `src/ui/` | Row editor with per-opening panel toggles and whole-face shortcuts, parts-list table, URL hash sync |
+| `src/engine/diagrams.ts` | To-scale elevations and plans of every face and frame for the panel drawings (pure, tested) |
+| `src/ui/` | Row editor, panel drawings (click a rectangle to cycle open, inter-fit, full cover; hover syncs with the 3D view), whole-face shortcuts, parts-list table, URL hash sync |
 | `tests/` | Vitest; `fixtures.ts` holds the worked examples |
 
 ### Geometry rules
@@ -43,7 +44,7 @@ npm run build    # static bundle in dist/, served under /configurator/
 
 ### Preview
 
-The 3D preview uses the part meshes exported by `site/scripts/export-parts.mjs` (served under `/parts/`; the standalone app serves `../site/public` too). Every connector is placed with the rotation from `orientation.ts`, lock pins sit in every occupied arm, feet plug into the floor arms. Panels remain translucent slabs because they are parametric in two dimensions. Without the mesh library the preview falls back to schematic boxes.
+The 3D preview uses the part meshes exported by `site/scripts/export-parts.mjs` (served under `/parts/`; the standalone app serves `../site/public` too). Every connector is placed with the rotation from `orientation.ts`, lock pins sit in every occupied arm, feet plug into the floor arms. Panels are parametric in two dimensions, so instead of loading meshes they are built from the panel model's dimensions: the plate (inset and flush for inter-fit, overlapping the supports by half a unit for full cover), 2 mm mount plates one unit deep on every edge longer than 2 units, and 13 mm corner mounts. Without the mesh library the preview falls back to schematic boxes.
 
 Worked example (defaults): depth 6, rows 5 and 4 high with one 6-unit column, feet on, segmented posts gives 12 x 6u + 4 x 5u + 4 x 4u supports, 8 x 3D4W + 4 x 3D3W connectors, 44 lock pins, 4 feet. Splitting the bottom row into two 4-unit columns adds a post, two T connectors (3D5W and 3D4W) and two feet.
 

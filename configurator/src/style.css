@@ -10,9 +10,9 @@
   --accent: #f7b600;
   --accent-ink: #1a1300;
   --danger: #ff4d6a;
-  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --font-label: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
-  --font-body: "Barlow", "Segoe UI", sans-serif;
+  --font-display: "Orbitron", "Segoe UI", sans-serif;
+  --font-label: "Source Code Pro", ui-monospace, Consolas, monospace;
+  --font-body: "Source Code Pro", ui-monospace, Consolas, monospace;
   color-scheme: dark;
 }
 
@@ -20,8 +20,8 @@ html {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 18px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 body {
@@ -37,8 +37,8 @@ body {
 
 .standalone-header h1 {
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.5rem;
+  font-weight: 900;
+  font-size: 1.1rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin: 0;

@@ -13,8 +13,8 @@
   --cfg-accent: var(--accent, #f7b600);
   --cfg-accent-ink: var(--accent-ink, #1a1300);
   --cfg-danger: var(--danger, #ff4d6a);
-  --cfg-label: var(--font-label, "Barlow Semi Condensed", "Arial Narrow", sans-serif);
-  --cfg-display: var(--font-display, "Barlow Condensed", "Arial Narrow", sans-serif);
+  --cfg-label: var(--font-label, "Source Code Pro", ui-monospace, Consolas, monospace);
+  --cfg-display: var(--font-display, "Orbitron", "Segoe UI", sans-serif);
 
   display: grid;
   grid-template-columns: 21rem minmax(0, 1fr) 23rem;
@@ -134,9 +134,9 @@
 
 .cfg h2 {
   font-family: var(--cfg-display);
-  font-weight: 700;
-  font-size: 1.9rem;
-  line-height: 1;
+  font-weight: 900;
+  font-size: 1.3rem;
+  line-height: 1.05;
   text-transform: uppercase;
   margin: 0 0 0.4rem;
 }
@@ -336,49 +336,16 @@
   font-size: 0.85rem;
 }
 
-/* Opening toggles */
-
-.cfg-strips {
-  margin-top: 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.cfg-strip {
-  display: grid;
-  grid-template-columns: 5.2rem 1fr;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.cfg-strip-name {
-  font-family: var(--cfg-label);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--cfg-muted);
-}
-
-.cfg-strip-cells {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
+/* Opening legend swatches and face diagrams */
 
 .cfg .cfg-open {
-  margin: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  min-height: 0;
-  padding: 0;
+  width: 0.9rem;
+  height: 0.9rem;
   display: inline-block;
   vertical-align: middle;
+  margin-right: 0.15rem;
   border: 2px solid var(--cfg-accent);
   background: transparent;
-  clip-path: none;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
 .cfg .cfg-open[data-state="interfit"] {
@@ -389,31 +356,72 @@
   background: var(--cfg-accent);
 }
 
-.cfg button.cfg-open:hover,
-.cfg button.cfg-open:focus-visible {
-  outline: 2px solid var(--cfg-text);
-  outline-offset: 1px;
-  background-color: var(--cfg-panel-2);
-}
-
-.cfg button.cfg-open[data-state="fullcover"]:hover {
-  background: #ffcd3a;
-}
-
 .cfg-legend {
-  margin: 0.8rem 0 0;
+  margin: 0 0 0.6rem;
   font-size: 0.85rem;
   color: var(--cfg-muted);
 }
 
-.cfg-legend .cfg-open {
-  width: 0.9rem;
-  height: 0.9rem;
-  margin-right: 0.15rem;
+.cfg-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.2rem;
+  align-items: flex-end;
 }
 
-.cfg button.cfg-open:disabled {
-  border-style: dashed;
-  border-color: var(--cfg-line);
+.cfg-face {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cfg-face figcaption {
+  font-family: var(--cfg-label);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+}
+
+.cfg-diagram {
+  display: block;
+  overflow: visible;
+}
+
+.cfg-diagram-frame {
+  fill: var(--cfg-panel-2);
+  stroke: var(--cfg-line);
+  stroke-width: 0.15;
+}
+
+.cfg-cell {
+  fill: var(--cfg-bg);
+  stroke: var(--cfg-accent);
+  stroke-width: 0.25;
+  cursor: pointer;
+  outline: none;
+}
+
+.cfg-cell[data-state="interfit"] {
+  fill: var(--cfg-accent);
+  fill-opacity: 0.45;
+}
+
+.cfg-cell[data-state="fullcover"] {
+  fill: var(--cfg-accent);
+}
+
+.cfg-cell[data-state="blocked"] {
+  fill: var(--cfg-panel-2);
+  stroke: var(--cfg-line);
+  stroke-dasharray: 0.4 0.3;
   cursor: not-allowed;
+}
+
+.cfg-cell:hover,
+.cfg-cell:focus-visible,
+.cfg-cell.is-hot {
+  stroke: var(--cfg-text);
+  stroke-width: 0.4;
 }

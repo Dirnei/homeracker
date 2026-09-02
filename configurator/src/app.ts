@@ -36,6 +36,9 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
       form.write(next);
       apply(next);
     },
+    onHover(opening) {
+      form.highlight(opening?.id ?? null);
+    },
   });
 
   const apply = (config: RackConfig): boolean => {
@@ -55,14 +58,18 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
   };
 
   let timer: number | undefined;
-  const form = renderForm(controls, () => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      const result = form.read();
-      if ("error" in result) showIssues(controls, [result.error]);
-      else apply(result.config);
-    }, 100);
-  });
+  const form = renderForm(
+    controls,
+    () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const result = form.read();
+        if ("error" in result) showIssues(controls, [result.error]);
+        else apply(result.config);
+      }, 100);
+    },
+    { onHover: (opening) => viewer.highlight(opening?.id ?? null) },
+  );
 
   const initial = readHash() ?? defaultConfig();
   form.write(initial);

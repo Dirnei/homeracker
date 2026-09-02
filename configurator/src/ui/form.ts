@@ -1,5 +1,6 @@
 import { BASE_UNIT, LIMITS } from "../engine/constants";
 import { frames, rowWidth } from "../engine/lattice";
+import { faceDiagrams, type Diagram } from "../engine/diagrams";
 import { canClose, closeFace, groupOpenings, openings, panelAt, togglePanel } from "../engine/panels";
 import type { FaceGroup, Opening, PanelSpec, PanelType, PostMode, RackConfig, RackRow } from "../engine/types";
 import { el, qs } from "./dom";
@@ -13,6 +14,13 @@ export type FormResult = { config: RackConfig } | { error: string };
 export interface RackForm {
   read(): FormResult;
   write(config: RackConfig): void;
+  /** Highlight one opening in the diagrams (by id); null clears. */
+  highlight(id: string | null): void;
+}
+
+export interface FormOptions {
+  /** Called when the pointer enters or leaves an opening rectangle in a diagram. */
+  onHover?: (opening: Opening | null) => void;
 }
 
 /** Editable copy of a row: the column text is kept verbatim so half-typed lists are not destroyed. */
@@ -60,59 +68,66 @@ function groupField(group: FaceGroup): HTMLElement {
   ]);
 }
 
-/** One toggle per opening; the visual state comes from data-state, the meaning from the label. */
-function openingButton(opening: Opening, state: PanelType | "open", label: string): HTMLButtonElement {
-  const closable = canClose(opening);
-  const text = closable
-    ? `${label}: ${TYPE_LABEL[state]}`
-    : `${label}: ${opening.length}x${opening.height} units, no panel fits (2 to 16 units per side)`;
-  const attrs: Record<string, string> = {
-    type: "button",
-    class: "cfg-open",
-    "data-opening": opening.id,
-    "data-state": state,
-    "aria-label": text,
-    title: text,
-  };
-  if (!closable) attrs.disabled = "";
-  return el("button", attrs);
+const SVG = "http://www.w3.org/2000/svg";
+
+/** Human label of an opening for tooltips and screen readers. */
+function openingLabel(opening: Opening, rowCount: number): string {
+  if (opening.face === "horizontal") {
+    const level = opening.at === 0 ? "bottom" : opening.at === rowCount ? "top" : `shelf above row ${opening.at}`;
+    return `${level}, span ${opening.index + 1}`;
+  }
+  const bay = opening.face === "front" || opening.face === "back" ? `, bay ${opening.index + 1}` : "";
+  return `${opening.face}, row ${opening.at + 1}${bay}`;
 }
 
-function strip(title: string, buttons: HTMLElement[]): HTMLElement {
-  return el("div", { class: "cfg-strip" }, [
-    el("span", { class: "cfg-strip-name" }, [title]),
-    el("span", { class: "cfg-strip-cells" }, buttons),
-  ]);
+/** A to-scale SVG of one face; every opening is a focusable rectangle that cycles its panel state. */
+function diagramView(diagram: Diagram, config: RackConfig): HTMLElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${diagram.width} ${diagram.height}`);
+  svg.setAttribute("class", "cfg-diagram");
+  svg.setAttribute("role", "group");
+  svg.setAttribute("aria-label", diagram.title);
+  const scale = Math.min(1, 26 / diagram.width);
+  svg.style.width = `${diagram.width * 10 * scale}px`;
+  svg.style.height = `${diagram.height * 10 * scale}px`;
+  const frame = document.createElementNS(SVG, "rect");
+  frame.setAttribute("class", "cfg-diagram-frame");
+  frame.setAttribute("x", "0");
+  frame.setAttribute("y", "0");
+  frame.setAttribute("width", String(diagram.width));
+  frame.setAttribute("height", String(diagram.height));
+  svg.append(frame);
+  for (const cell of diagram.cells) {
+    const closable = canClose(cell.opening);
+    const state = panelAt(config, cell.opening) ?? "open";
+    const label = openingLabel(cell.opening, config.rows.length);
+    const size = `${cell.opening.length}x${cell.opening.height} units`;
+    const text = closable ? `${label}: ${size}, ${TYPE_LABEL[state]}` : `${label}: ${size}, no panel fits (2 to 16 units per side)`;
+    const rect = document.createElementNS(SVG, "rect");
+    rect.setAttribute("x", String(cell.x));
+    rect.setAttribute("y", String(cell.y));
+    rect.setAttribute("width", String(cell.w));
+    rect.setAttribute("height", String(cell.h));
+    rect.setAttribute("class", "cfg-cell");
+    rect.setAttribute("data-opening", cell.opening.id);
+    rect.setAttribute("data-state", closable ? state : "blocked");
+    rect.setAttribute("role", "button");
+    rect.setAttribute("aria-label", text);
+    rect.setAttribute("tabindex", closable ? "0" : "-1");
+    const title = document.createElementNS(SVG, "title");
+    title.textContent = text;
+    rect.append(title);
+    svg.append(rect);
+  }
+  return el("figure", { class: "cfg-face" }, [el("figcaption", {}, [diagram.title]), svg]);
 }
 
 /** One editable row. `index` counts from the bottom; rows are listed top first to match the 3D view. */
-function rowCard(draft: RowDraft, index: number, count: number, config: RackConfig | null, all: Opening[]): HTMLElement {
+function rowCard(draft: RowDraft, index: number, count: number): HTMLElement {
   const id = (name: string) => `f-row-${index}-${name}`;
   const place = index === count - 1 ? (count === 1 ? "only row" : "top") : index === 0 ? "bottom" : `row ${index + 1}`;
   const min = String(LIMITS.support.min);
   const max = String(LIMITS.support.max);
-
-  const strips: HTMLElement[] = [];
-  if (config) {
-    const state = (o: Opening) => panelAt(config, o) ?? "open";
-    const of = (face: Opening["face"], at: number) => all.filter((o) => o.face === face && o.at === at);
-    const bays = (face: "front" | "back") => of(face, index).map((o) => openingButton(o, state(o), `${face} bay ${o.index + 1}`));
-    if (index === count - 1) {
-      strips.push(strip("Top", of("horizontal", count).map((o) => openingButton(o, state(o), `top span ${o.index + 1}`))));
-    }
-    strips.push(strip("Front", bays("front")));
-    strips.push(strip("Back", bays("back")));
-    strips.push(
-      strip("Sides", [
-        ...of("left", index).map((o) => openingButton(o, state(o), "left side")),
-        ...of("right", index).map((o) => openingButton(o, state(o), "right side")),
-      ]),
-    );
-    const floor = index === 0 ? "Bottom" : "Shelf below";
-    strips.push(
-      strip(floor, of("horizontal", index).map((o) => openingButton(o, state(o), `${floor.toLowerCase()} span ${o.index + 1}`))),
-    );
-  }
 
   return el("div", { class: "cfg-row", "data-index": String(index) }, [
     el("div", { class: "cfg-row-head" }, [
@@ -139,7 +154,6 @@ function rowCard(draft: RowDraft, index: number, count: number, config: RackConf
       ]),
     ]),
     el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
-    el("div", { class: "cfg-strips" }, strips),
   ]);
 }
 
@@ -170,11 +184,12 @@ export function remapPanels(panels: PanelSpec[], op: "insert" | "remove" | "swap
   return out;
 }
 
-export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
+export function renderForm(root: HTMLElement, onChange: () => void, options: FormOptions = {}): RackForm {
   let drafts: RowDraft[] = [];
   let panels: PanelSpec[] = [];
 
   const rowList = el("div", { class: "cfg-rows" });
+  const faces = el("div", { class: "cfg-faces" });
   const addButton = el("button", { type: "button", class: "cfg-add", "data-action": "add" }, ["Add row on top"]);
   const form = el("form", { id: "rack-form" }, [
     el("fieldset", {}, [
@@ -182,14 +197,18 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
       addButton,
       rowList,
       el("p", { class: "readout", "data-readout": "outer" }),
+    ]),
+    el("fieldset", {}, [
+      el("legend", {}, ["Panels"]),
       el("p", { class: "cfg-legend" }, [
         el("span", { class: "cfg-open", "data-state": "open", "aria-hidden": "true" }),
         " open ",
         el("span", { class: "cfg-open", "data-state": "interfit", "aria-hidden": "true" }),
         " inter-fit ",
         el("span", { class: "cfg-open", "data-state": "fullcover", "aria-hidden": "true" }),
-        " full cover. Click an opening here or in the 3D view.",
+        " full cover. Click an opening in a drawing or in the 3D view to cycle it.",
       ]),
+      faces,
     ]),
     el("fieldset", {}, [
       el("legend", {}, ["Footprint"]),
@@ -261,18 +280,52 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
     });
   };
 
-  const renderRows = () => {
+  const renderFaces = () => {
     const config = draftConfig();
-    const all = config ? openings(config) : [];
-    const cards = drafts.map((d, i) => rowCard(d, i, drafts.length, config, all)).reverse();
+    faces.replaceChildren(...(config ? faceDiagrams(config).map((d) => diagramView(d, config)) : []));
+  };
+
+  const renderRows = () => {
+    const cards = drafts.map((d, i) => rowCard(d, i, drafts.length)).reverse();
     rowList.replaceChildren(...cards);
+    renderFaces();
     updateReadouts();
   };
 
   const changed = () => {
+    renderFaces();
     updateReadouts();
     onChange();
   };
+
+  const toggleOpening = (id: string | undefined) => {
+    const config = draftConfig();
+    const opening = config && openings(config).find((o) => o.id === id);
+    if (!config || !opening || !canClose(opening)) return;
+    panels = togglePanel(config, opening).panels;
+    renderFaces();
+    updateReadouts();
+    onChange();
+  };
+
+  const cellOf = (target: EventTarget | null) => (target as Element | null)?.closest<SVGRectElement>("rect[data-opening]") ?? null;
+
+  faces.addEventListener("click", (event) => {
+    const cell = cellOf(event.target);
+    if (cell) toggleOpening(cell.dataset.opening);
+  });
+  faces.addEventListener("keydown", (event) => {
+    const cell = cellOf(event.target);
+    if (!cell || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    toggleOpening(cell.dataset.opening);
+  });
+  faces.addEventListener("pointerover", (event) => {
+    const cell = cellOf(event.target);
+    const config = cell && draftConfig();
+    options.onHover?.(config ? (openings(config).find((o) => o.id === cell.dataset.opening) ?? null) : null);
+  });
+  faces.addEventListener("pointerleave", () => options.onHover?.(null));
 
   rowList.addEventListener("input", (event) => {
     const target = event.target as HTMLInputElement;
@@ -287,16 +340,6 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
 
   form.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
-    const toggle = target.closest<HTMLButtonElement>("button[data-opening]");
-    if (toggle) {
-      const config = draftConfig();
-      const opening = config && openings(config).find((o) => o.id === toggle.dataset.opening);
-      if (!config || !opening) return;
-      panels = togglePanel(config, opening).panels;
-      renderRows();
-      onChange();
-      return;
-    }
     const button = target.closest<HTMLButtonElement>("button[data-action]");
     if (!button) return;
     const action = button.dataset.action;
@@ -332,7 +375,8 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
       const config = draftConfig();
       const value = (target as HTMLSelectElement).value as PanelType | "";
       if (config) panels = closeFace(config, group, value || null).panels;
-      renderRows();
+      renderFaces();
+      updateReadouts();
       onChange();
       return;
     }
@@ -340,6 +384,11 @@ export function renderForm(root: HTMLElement, onChange: () => void): RackForm {
   });
 
   return {
+    highlight(id) {
+      for (const rect of faces.querySelectorAll<SVGRectElement>("rect[data-opening]")) {
+        rect.classList.toggle("is-hot", rect.dataset.opening === id);
+      }
+    },
     read() {
       const config = draftConfig();
       if (!config) return { error: "column widths must be whole numbers separated by commas" };
