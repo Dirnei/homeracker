@@ -34,7 +34,7 @@ Astro caches rendered markdown in `.astro/`. After changing the rehype transform
 | `src/lib/rack.ts` | Fallback hero when no part meshes are present: the default configurator rack as schematic boxes |
 | `scripts/export-parts.mjs` | Exports the part library with OpenSCAD into `public/parts/` (gitignored): every connector type and pull-through variant, supports from 1 to 50 units, the lock pin and the foot. Used by the hero and by the configurator preview |
 | `src/pages/` | `index.astro` (README), `models/index.astro` (catalog), `models/[slug].astro` (model pages), `configurator.astro` (mounts the configurator app) |
-| `src/styles/global.css` | Design tokens, the Barlow type system (Condensed for display, Semi Condensed for labels, regular for body; monospace only in code) and markdown styling |
+| `src/styles/global.css` | Design tokens, the type system from [docs/styleguide.md](../docs/styleguide.md) (Orbitron Black for headings, Source Code Pro for everything else) and markdown styling |
 
 ### Writing docs that render well
 

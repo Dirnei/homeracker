@@ -255,6 +255,8 @@ HomeRacker includes custom tooling to streamline development:
   - Uses scadm under the hood, with caching for fast runs
   - Usage: `uses: kellerlabs/homeracker/.github/actions/setup-openscad@setup-openscad-v1`
 
+- **[Style Guide](docs/styleguide.md)** - colours from `constants.scad`, Orbitron Black + Source Code Pro, layout rules
+
 - **[Site](site/README.md)** - homeracker.org, built by Astro from the READMEs in this repo
   - Home page, model catalog and model pages come straight from `README.md` and `models/*/README.md`
   - Relative links and render images are resolved at build time
