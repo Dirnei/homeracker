@@ -7,12 +7,7 @@ import Base from "../layouts/Base.astro";
   description="Plan a HomeRacker rack: set width, depth, height, levels, feet and panels, preview it in 3D, and copy the parts list."
   app
 >
-  <div class="bar">
-    <div class="wrap bar-inner">
-      <h1>Configurator</h1>
-      <p>Set the frame, levels and panels. The parts list updates as you go, and the address bar is the saved rack.</p>
-    </div>
-  </div>
+  <h1 class="sr-only">Configurator</h1>
   <div id="configurator" class="app"></div>
 </Base>
 
@@ -25,31 +20,13 @@ import Base from "../layouts/Base.astro";
 </script>
 
 <style>
-  .bar {
-    flex: 0 0 auto;
-    border-bottom: 1px solid var(--line);
-    background: var(--bg);
-  }
-
-  .bar-inner {
-    display: flex;
-    align-items: baseline;
-    gap: 1.2rem;
-    min-height: 2.9rem;
-    padding: 0.35rem 0;
-    flex-wrap: wrap;
-  }
-
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--accent);
-  }
-
-  p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.95rem;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .app {
