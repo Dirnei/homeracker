@@ -1,0 +1,53 @@
+# 📋 Web Configurator on GitHub Pages
+
+## 📌 Status
+
+**Accepted** — 2026-09-02
+
+## 🤔 Context
+
+The README asks builders to "make a parts list" by hand: supports per length, connectors per type, lock pins. Nothing in the repo does that math, and the only site is the README rendered by the classic Jekyll Pages build at `homeracker.org`.
+
+A configurator needs a place to live, a toolchain, a way to publish, and a preview strategy.
+
+### Alternatives Considered
+
+| Approach | Verdict | Reason |
+|---|---|---|
+| Separate `homeracker-configurator` repo | ❌ Rejected | Geometry rules drift from the `.scad` sources; second release train |
+| Plain ES modules without a build step | ❌ Rejected | No type checking, no unit tests for the parts-list math |
+| UI framework (React/Svelte) | ❌ Rejected | Form + table + canvas does not justify the dependency weight |
+| Real part meshes rendered in CI | ⏳ Deferred | Heavy asset pipeline before anything is usable; schematic boxes are enough to sanity-check a layout |
+| Commit built `dist/` to keep branch-based Pages | ❌ Rejected | Generated code in git, noisy PRs |
+
+## 🔧 Decision
+
+- **Location**: `configurator/` in this repo, published at `https://homeracker.org/configurator/`.
+- **Stack**: Vite + TypeScript + Three.js, Vitest for tests, no UI framework.
+- **Engine/render split**: `src/engine/` is pure (no DOM, no Three.js) and holds every geometry rule and the bill of materials; enforced by a separate `tsconfig.engine.json` and an eslint import restriction. `src/render/` and `src/ui/` are thin.
+- **Preview**: schematic unit boxes in HomeRacker colours from `constants.scad`. Lock pins are not drawn.
+- **Sharing**: the config is encoded in the URL hash (`#v=1&w=6&d=6&h=10&l=6&f=1&p=s`); no backend.
+- **Deploy**: `pages.yml` builds the Jekyll README site with `actions/jekyll-build-pages`, adds the Vite build under `_site/configurator`, and deploys with `actions/deploy-pages`. Pages source must be set to **GitHub Actions** once. `_config.yml` excludes `configurator/` so Jekyll never sees sources or `node_modules`.
+- **CI**: `configurator.yml` lints, tests and builds on PRs touching `configurator/**`; a local pre-commit hook runs the same `npm run check`.
+
+### Geometry rules encoded
+
+- Nodes on an integer lattice; a support between nodes `a < b` has length `b - a - 1`, so `3 + connector + 3 = 7 units`.
+- Connector type = (axes used, arm count), matching `CONNECTOR_CONFIGS`. Continuous posts make intermediate nodes z pull-through.
+- One lock pin per occupied arm; feet occupy the `-z` arm of every floor node.
+- A panel fills the opening bounded by its supports (`units_x = support length`), derived from `panel.scad`'s inter-fit deduction. Panel pins are an estimate and listed separately.
+
+## 📊 Consequences
+
+- **Positive**: parts list is computed, testable and shareable by link; geometry rules live next to the models they mirror
+- **Positive**: README site is unchanged; the configurator is an additive path
+- **Negative**: first JS toolchain in the repo (Node in CI and pre-commit, Renovate npm updates)
+- **Negative**: Pages source setting must be flipped by an admin; until then the deploy job fails
+- **Next**: per-part STL export in the browser via openscad-wasm from `models/*/flattened/*.scad`
+
+## 📚 References
+
+- [configurator/README.md](../../configurator/README.md)
+- [models/core/lib/connector.scad](../../models/core/lib/connector.scad) — `CONNECTOR_CONFIGS`
+- [models/panel/lib/panel.scad](../../models/panel/lib/panel.scad) — inter-fit deduction
+- [image-hosting-assets-repo](image-hosting-assets-repo.md) — why the app ships no image files

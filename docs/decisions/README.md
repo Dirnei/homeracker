@@ -6,6 +6,7 @@ Lightweight records capturing the **why** behind architecture, tooling, and work
 
 | Decision | Date | Summary |
 |---|---|---|
+| [web-configurator-on-github-pages](web-configurator-on-github-pages.md) | 2026-09-02 | Rack configurator + parts list as a Vite app at `/configurator/`, deployed via Pages Actions |
 | [rackpanel-usable-frame-helpers](rackpanel-usable-frame-helpers.md) | 2026-06-19 | Expose usable-frame helpers + child passthrough on `rackpanel` |
 | [stiffen-rack-panels-with-truss-grid](stiffen-rack-panels-with-truss-grid.md) | 2026-06-19 | Optional back-side truss stiffener via generic `truss_grid` |
 | [unify-export-png-into-scadm](unify-export-png-into-scadm.md) | 2026-06-18 | Replace duplicate shell scripts with `scadm export-png` |
