@@ -17,9 +17,9 @@
       </div>
     </div>
     <figure class="stage">
-      <canvas id="hero-rack" aria-label="Schematic HomeRacker rack, slowly rotating"></canvas>
+      <canvas id="hero-rack" aria-label="HomeRacker parts assembling into a cube and coming apart again"></canvas>
       <figcaption>
-        <span class="eyebrow">Live preview</span> 6 × 6 × 10 units · 20 supports · 12 connectors · 44 lock pins
+        <span class="eyebrow">How it goes together</span> 8 connectors · 12 supports · 24 lock pins, straight from the OpenSCAD models
       </figcaption>
     </figure>
   </div>
@@ -33,10 +33,10 @@
 </section>
 
 <script>
-  import { mountHeroRack } from "../lib/rack";
+  import { mountHero } from "../lib/hero";
 
   const canvas = document.querySelector<HTMLCanvasElement>("#hero-rack");
-  if (canvas) mountHeroRack(canvas);
+  if (canvas) void mountHero(canvas);
 </script>
 
 <style>

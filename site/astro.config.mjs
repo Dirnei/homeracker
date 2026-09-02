@@ -7,8 +7,11 @@ export default defineConfig({
   outDir: "dist",
   trailingSlash: "always",
   image: {
-    // The HomeRacker logo lives in kellerlabs/assets; Astro fetches and optimizes it at build time.
-    domains: ["raw.githubusercontent.com"],
+    // Only the logo is fetched and optimized at build time; other assets-repo images load as they are,
+    // so a build never depends on reaching every image in kellerlabs/assets.
+    remotePatterns: [
+      { protocol: "https", hostname: "raw.githubusercontent.com", pathname: "/kellerlabs/assets/main/homeracker/img/homeracker_logo.png" },
+    ],
   },
   markdown: {
     processor: unified({ rehypePlugins: [rehypeRepoLinks, rehypeSections] }),

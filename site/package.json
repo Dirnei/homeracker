@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "parts": "node scripts/export-parts.mjs",
+    "build": "node scripts/export-parts.mjs && astro build",
     "preview": "astro preview",
     "test": "vitest run",
     "lint": "astro check",

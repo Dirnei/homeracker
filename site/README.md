@@ -18,6 +18,8 @@ npm run check    # astro check + vitest
 npm run build    # static site in dist/
 ```
 
+`npm run build` first runs `scripts/export-parts.mjs`, which needs OpenSCAD (`scadm install` puts it in `bin/openscad/`, or set `OPENSCAD`). Without it the script warns, the build continues, and the hero shows the schematic rack instead. CI sets `PARTS_REQUIRED=1` so a missing OpenSCAD fails the build there.
+
 Astro caches rendered markdown in `.astro/`. After changing the rehype transforms in `src/lib/`, run `npx astro build --force` so cached README renders are regenerated.
 
 ### Structure
@@ -28,7 +30,9 @@ Astro caches rendered markdown in `.astro/`. After changing the rehype transform
 | `src/lib/links.ts` | Rewrites relative markdown links to site routes, or to GitHub when the site has no page for the target |
 | `src/lib/sections.ts` | Wraps each heading block in a `<section>` so the theme can lay out README sections; drops the GitHub table of contents |
 | `src/lib/catalog.ts` | Builds catalog cards from `models/README.md` |
-| `src/lib/rack.ts` | Home page hero: the default configurator rack drawn with Three.js, orbiting slowly (still image under reduced motion) |
+| `src/lib/hero.ts` | Home page hero: the exploded 3D3W cube (8 connectors, 12 supports, 24 lock pins) built from real part meshes, assembling and coming apart in a loop; still exploded view under reduced motion |
+| `src/lib/rack.ts` | Fallback hero when no part meshes are present: the default configurator rack as schematic boxes |
+| `scripts/export-parts.mjs` | Exports the connector, support and lock pin from `models/core/parts` with OpenSCAD into `public/parts/` (gitignored) |
 | `src/pages/` | `index.astro` (README), `models/index.astro` (catalog), `models/[slug].astro` (model pages), `configurator.astro` (mounts the configurator app) |
 | `src/styles/global.css` | Design tokens, the Barlow type system (Condensed for display, Semi Condensed for labels, regular for body; monospace only in code) and markdown styling |
 

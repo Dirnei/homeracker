@@ -35,12 +35,19 @@ jobs:
             site/package-lock.json
             configurator/package-lock.json
 
+      - name: Setup OpenSCAD
+        uses: ./.github/actions/setup-openscad
+        with:
+          scadm-source: cmd/scadm
+
       - name: Install configurator dependencies
         working-directory: configurator
         run: npm ci
 
       - name: Build site
         working-directory: site
+        env:
+          PARTS_REQUIRED: "1"
         run: |
           npm ci
           npm run build

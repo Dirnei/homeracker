@@ -43,4 +43,5 @@ configurator/dist/
 site/node_modules/
 site/dist/
 site/.astro/
+site/public/parts/
 _site/
