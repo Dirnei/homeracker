@@ -6,8 +6,10 @@ import Nav from "../components/Nav.astro";
 interface Props {
   title: string;
   description: string;
+  /** Full-height app page: no footer, the main region fills the viewport and the page itself never scrolls. */
+  app?: boolean;
 }
-const { title, description } = Astro.props;
+const { title, description, app = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -23,13 +25,13 @@ const { title, description } = Astro.props;
     <meta property="og:description" content={description} />
     <meta name="theme-color" content="#0b0c10" />
   </head>
-  <body>
+  <body class:list={{ "app-shell": app }}>
     <a class="skip" href="#main">Skip to content</a>
     <Nav />
     <main id="main">
       <slot />
     </main>
-    <Footer />
+    {!app && <Footer />}
   </body>
 </html>
 

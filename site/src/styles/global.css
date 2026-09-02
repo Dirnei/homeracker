@@ -59,6 +59,30 @@ body {
   background-attachment: fixed;
 }
 
+/* App pages (configurator): nav + app fill the viewport, panes scroll internally. */
+body.app-shell {
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.app-shell main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1000px) {
+  body.app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+}
+
 a {
   color: var(--link);
   text-decoration-color: rgba(77, 149, 255, 0.4);

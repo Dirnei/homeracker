@@ -5,14 +5,13 @@ import Base from "../layouts/Base.astro";
 <Base
   title="Configurator – HomeRacker"
   description="Plan a HomeRacker rack: set width, depth, height, levels, feet and panels, preview it in 3D, and copy the parts list."
+  app
 >
-  <div class="wrap head">
-    <p class="eyebrow">Plan before you print</p>
-    <h1>Configurator</h1>
-    <p class="lede">
-      Set the frame, add levels and panels, and read off exactly which supports, connectors and lock pins to print.
-      The link in your address bar is the saved rack; share it as it is.
-    </p>
+  <div class="bar">
+    <div class="wrap bar-inner">
+      <h1>Configurator</h1>
+      <p>Set the frame, levels and panels. The parts list updates as you go, and the address bar is the saved rack.</p>
+    </div>
   </div>
   <div id="configurator" class="app"></div>
 </Base>
@@ -26,22 +25,50 @@ import Base from "../layouts/Base.astro";
 </script>
 
 <style>
-  .head {
-    padding: 2.5rem 0 1.5rem;
-    max-width: var(--measure);
+  .bar {
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  .bar-inner {
+    display: flex;
+    align-items: baseline;
+    gap: 1.2rem;
+    min-height: 2.9rem;
+    padding: 0.35rem 0;
+    flex-wrap: wrap;
   }
 
   h1 {
-    margin: 0.5rem 0 0.8rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
   }
 
-  .lede {
-    color: var(--muted);
-    font-size: 1.1rem;
+  p {
     margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
   }
 
   .app {
-    min-height: 60vh;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app :global(.cfg) {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    border-top: none;
+  }
+
+  @media (max-width: 1000px) {
+    .app :global(.cfg) {
+      min-height: 0;
+    }
   }
 </style>
