@@ -35,7 +35,7 @@ const current = Astro.url.pathname;
         {
           external.map((l) => (
             <li class="ext">
-              <a href={l.href} rel="noopener">
+              <a href={l.href} target="_blank" rel="noopener">
                 {l.label}
               </a>
             </li>

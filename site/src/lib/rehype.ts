@@ -15,7 +15,10 @@ export function rehypeRepoLinks() {
     visit(tree, "element", (node) => {
       if (node.tagName !== "a" || typeof node.properties.href !== "string") return;
       node.properties.href = rewriteHref(node.properties.href, sourcePath);
-      if (/^https?:/.test(node.properties.href)) node.properties.rel = ["noopener"];
+      if (/^https?:/.test(node.properties.href)) {
+        node.properties.target = "_blank";
+        node.properties.rel = ["noopener"];
+      }
     });
   };
 }
