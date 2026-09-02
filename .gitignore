@@ -40,4 +40,7 @@ cmd/scadm/*.egg-info/
 # Web configurator (Vite)
 configurator/node_modules/
 configurator/dist/
+site/node_modules/
+site/dist/
+site/.astro/
 _site/

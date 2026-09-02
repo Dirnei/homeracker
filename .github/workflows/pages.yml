@@ -26,18 +26,20 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Build Jekyll site
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./
-          destination: ./_site
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: configurator/package-lock.json
+          cache-dependency-path: |
+            site/package-lock.json
+            configurator/package-lock.json
+
+      - name: Build site
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
 
       - name: Build configurator
         working-directory: configurator
@@ -45,8 +47,11 @@ jobs:
           npm ci
           npm run build
 
-      - name: Add configurator to site
-        run: sudo cp -r configurator/dist _site/configurator
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r site/dist/. _site/
+          cp -r configurator/dist _site/configurator
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

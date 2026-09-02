@@ -1,19 +1,23 @@
 ---
-name: Configurator
+name: Web
 
 on:
   pull_request:
     paths:
       - 'configurator/**'
-      - '.github/workflows/configurator.yml'
+      - 'site/**'
+      - 'README.md'
+      - 'models/**/README.md'
+      - '.github/workflows/web.yml'
   push:
     branches:
       - main
     paths:
       - 'configurator/**'
+      - 'site/**'
 
 jobs:
-  check:
+  configurator:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,10 +48,34 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Upload build
-        uses: actions/upload-artifact@v7
+  site:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: site
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          name: configurator-dist
-          path: configurator/dist
-          retention-days: 7
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
 ...
