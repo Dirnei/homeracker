@@ -48,3 +48,6 @@ _site/
 
 # Superpowers SDD scratch (ledger, briefs, review packages)
 .superpowers/
+
+# Superpowers design and plan documents: kept locally, not part of the repo
+docs/superpowers/

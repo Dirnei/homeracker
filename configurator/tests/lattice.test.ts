@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { frames, rowBoundaries, rowSegments, rowWidth } from "../src/engine/lattice";
-import { exampleA, sideBySide, stepped, uShape, uShapeStacked } from "./fixtures";
+import { edgeGap, exampleA, sideBySide, stepped, uShape, uShapeStacked } from "./fixtures";
 
 describe("rowBoundaries", () => {
   test("places a node at every column boundary, one unit per divider", () => {
@@ -82,6 +82,25 @@ describe("frames", () => {
         [18, 25],
       ],
       [[0, 25]],
+    ]);
+  });
+
+  test("a gap at the end of a row drops only the beam above it", () => {
+    expect(frames(edgeGap).map((f) => f.beams)).toEqual([
+      [
+        [0, 7],
+        [7, 18],
+        [18, 25],
+      ],
+      [
+        [0, 7],
+        [7, 18],
+        [18, 25],
+      ],
+      [
+        [0, 7],
+        [7, 18],
+      ],
     ]);
   });
 

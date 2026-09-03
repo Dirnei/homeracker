@@ -97,3 +97,11 @@ export const uShapeStacked: RackConfig = {
   feet: false,
   panels: [],
 };
+
+/** A gap at the end of a row: the last bay keeps its posts and loses only the beam above it. */
+export const edgeGap: RackConfig = {
+  depth: 6,
+  rows: [row(5, [6, 10, 6]), row(5, [6, 10, -6])],
+  feet: false,
+  panels: [],
+};

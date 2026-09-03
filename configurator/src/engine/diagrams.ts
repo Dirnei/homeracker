@@ -64,9 +64,9 @@ export function faceDiagrams(config: RackConfig, all: Opening[] = openings(confi
     const segments = rowSegments(row);
     const gaps = row.columns.flatMap((width, i) => (isGap(width) ? [i] : []));
     const name = row.name?.trim() || `row ${r + 1}`;
-    // A gap at the edge of a row has only one wall; it is rejected by validate(), but the
-    // drawings are also built while a half-typed row is in the editor, so a figure may not exist
-    // for every gap. Number the ones that actually get a figure, not the gap columns themselves.
+    // A gap at the edge of a row exposes one wall, not a facing pair, and that wall already
+    // appears in its own side elevation. So a figure may not exist for every gap: number the
+    // ones that actually get a figure, not the gap columns themselves.
     const figures = gaps.flatMap((column) => {
       const leftWall = all.find((o) => o.face === "right" && o.at === r && o.index === segments.findIndex((s) => s.to === column - 1));
       const rightWall = all.find((o) => o.face === "left" && o.at === r && o.index === segments.findIndex((s) => s.from === column + 1));

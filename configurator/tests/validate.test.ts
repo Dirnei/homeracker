@@ -62,15 +62,10 @@ describe("validate", () => {
     expect(fields(cfg({ rows: rows([4, [6, -51, 6]]) }))).toEqual(["rows"]);
   });
 
-  test("rejects a gap without a bay on both sides of it", () => {
-    expect(fields(cfg({ rows: rows([4, [-10, 6]]) }))).toEqual(["rows"]);
-    expect(fields(cfg({ rows: rows([4, [6, -10]]) }))).toEqual(["rows"]);
-    expect(fields(cfg({ rows: rows([4, [6, -4, -4, 6]]) }))).toEqual(["rows"]);
-    expect(fields(cfg({ rows: rows([4, [-6]]) }))).toEqual(["rows"]);
-  });
-
-  test("says what a gap needs", () => {
-    const [issue] = validate(cfg({ rows: rows([4, [-10, 6]]) }));
-    expect(issue?.message).toMatch(/gap needs a bay on both sides/i);
+  test("accepts a gap anywhere in the row: it only takes away the beam above itself", () => {
+    expect(fields(cfg({ rows: rows([4, [6, 10, -6]]) }))).toEqual([]);
+    expect(fields(cfg({ rows: rows([4, [-10, 6]]) }))).toEqual([]);
+    expect(fields(cfg({ rows: rows([4, [6, -4, -4, 6]]) }))).toEqual([]);
+    expect(fields(cfg({ rows: rows([4, [-6]]) }))).toEqual([]);
   });
 });

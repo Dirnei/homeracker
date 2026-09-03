@@ -14,11 +14,6 @@ function isColumnWidth(value: number): boolean {
   return isSupportLength(Math.abs(value));
 }
 
-/** A gap only makes sense between two bays: anything else leaves a post or a beam attached to nothing. */
-function isFlanked(columns: number[], i: number): boolean {
-  return (columns[i - 1] ?? 0) > 0 && (columns[i + 1] ?? 0) > 0;
-}
-
 function rowIssue(config: RackConfig): ValidationIssue | null {
   const range = `between ${LIMITS.span.min} and ${LIMITS.span.max} units`;
   if (config.rows.length === 0) return { field: "rows", message: "add at least one row" };
@@ -30,9 +25,6 @@ function rowIssue(config: RackConfig): ValidationIssue | null {
     if (row.columns.length > MAX_COLUMNS) return { field: "rows", message: `${name}: at most ${MAX_COLUMNS} columns` };
     if (!row.columns.every(isColumnWidth)) {
       return { field: "rows", message: `${name}: every column width must be a whole number ${range}, or its negative for a gap (e.g. -10)` };
-    }
-    if (row.columns.some((width, i) => width < 0 && !isFlanked(row.columns, i))) {
-      return { field: "rows", message: `${name}: a gap needs a bay on both sides of it` };
     }
     if (!Number.isInteger(row.shift) || row.shift < 0 || row.shift > LIMITS.support.max) {
       return { field: "rows", message: `${name}: shift must be a whole number between 0 and ${LIMITS.support.max} units` };
