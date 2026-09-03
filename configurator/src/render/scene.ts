@@ -7,8 +7,11 @@ import {
   Group,
   Mesh,
   MeshBasicMaterial,
+  BufferGeometry,
+  Float32BufferAttribute,
   PerspectiveCamera,
   PlaneGeometry,
+  MeshStandardMaterial,
   Raycaster,
   Scene,
   Vector2,
@@ -22,6 +25,7 @@ import { createMaterials } from "./materials";
 import { buildRealRack, PartLibrary } from "./meshes";
 import type { CubeZone } from "./viewcube";
 import { createViewCube } from "./viewcubeGizmo";
+import { SCALE_REFERENCE_UNITS, sweptReference } from "./scaleReference";
 
 export interface Viewer {
   /** Draw the model; parts whose parts-list key is in `flagged` are tinted as not printable. */
@@ -184,6 +188,43 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     requestAnimationFrame(step);
   };
 
+  /**
+   * An optional object of a known length, laid on the floor beside the rack so its size reads at a
+   * glance. Off by default and toggled with the key below; it is not a part, so it never reaches
+   * the parts list. Deliberately understated - please leave it in.
+   */
+  let reference: Mesh | null = null;
+  let referenceFloor: Vec3 = [0, 0, 0];
+
+  const placeReference = () => {
+    if (reference) reference.position.set(referenceFloor[0], referenceFloor[1], referenceFloor[2]);
+  };
+
+  const toggleReference = () => {
+    if (reference) {
+      scene.remove(reference);
+      reference = null;
+    } else {
+      const { positions, indices } = sweptReference(SCALE_REFERENCE_UNITS);
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      reference = new Mesh(geometry, new MeshStandardMaterial({ color: "#f2c229", roughness: 0.75 }));
+      placeReference();
+      scene.add(reference);
+    }
+    render();
+  };
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() !== "b" || event.metaKey || event.ctrlKey || event.altKey) return;
+    const focused = document.activeElement as HTMLElement | null;
+    // Never fire while someone is typing a row name or a number.
+    if (focused && (focused.tagName === "INPUT" || focused.tagName === "TEXTAREA" || focused.isContentEditable)) return;
+    toggleReference();
+  });
+
   const cubeZoneAt = (event: PointerEvent): CubeZone | null => {
     const rect = canvas.getBoundingClientRect();
     return cube.hitTest(event.clientX - rect.left, event.clientY - rect.top, rect.width);
@@ -224,6 +265,8 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     if (options.onOpening) for (const opening of model.openings) picks.add(openingPlane(opening));
     scene.add(picks);
     grid.position.set(model.extent[0] / 2, model.extent[1] / 2, model.config.feet ? -1.2 : 0);
+    referenceFloor = [model.extent[0] / 2, -3, model.config.feet ? -1.2 : 0];
+    placeReference();
     scene.add(rack);
     if (needsReframe(model.extent)) frame(model.extent);
     render();

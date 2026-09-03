@@ -253,7 +253,10 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
       rowList,
       el("ul", { id: "issues", role: "alert" }),
       problems,
-      el("p", { class: "readout", "data-readout": "outer" }),
+      el("div", { class: "cfg-outer", "data-readout": "outer", hidden: "" }, [
+        el("span", { class: "cfg-outer-label" }, ["Outer size"]),
+        el("span", { class: "cfg-outer-value" }),
+      ]),
     ]),
     section("Panels", [
       el("p", { class: "cfg-legend" }, [
@@ -311,13 +314,16 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     qs<HTMLOutputElement>(form, '[data-readout="depth"]').textContent = `${(num("depth") + 2) * BASE_UNIT} mm outer`;
     const config = draftConfig();
     const outer = qs<HTMLElement>(form, '[data-readout="outer"]');
+    const outerValue = qs<HTMLElement>(form, ".cfg-outer-value");
     if (!config) {
-      outer.textContent = "";
+      // Nothing to summarise while a row is half typed: hide the block rather than leave it empty.
+      outer.hidden = true;
       return;
     }
+    outer.hidden = false;
     const width = Math.max(...config.rows.map((r) => r.shift + rowWidth(r)));
     const height = (frames(config).at(-1)?.z ?? 0) + 1;
-    outer.textContent = `Outer size: ${width * BASE_UNIT} x ${(config.depth + 2) * BASE_UNIT} x ${height * BASE_UNIT} mm`;
+    outerValue.textContent = `${width * BASE_UNIT} x ${(config.depth + 2) * BASE_UNIT} x ${height * BASE_UNIT} mm`;
     config.rows.forEach((r, i) => {
       const size = form.querySelector<HTMLOutputElement>(`[data-row-size="${i}"]`);
       if (size) size.textContent = `${rowWidth(r) * BASE_UNIT} mm wide, ${(r.height + 1) * BASE_UNIT} mm per row`;
