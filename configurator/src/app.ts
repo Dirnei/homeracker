@@ -3,40 +3,19 @@ import { defaultConfig } from "./engine/defaults";
 import { bomToMarkdown } from "./engine/markdown";
 import { buildModel } from "./engine/model";
 import { togglePanel } from "./engine/panels";
-import { DEFAULT_BED, unprintable, type PrinterBed } from "./engine/printer";
+import { unprintable, type PrinterBed } from "./engine/printer";
 import type { RackConfig } from "./engine/types";
 import { validate } from "./engine/validate";
 import { createViewer } from "./render/scene";
 import { renderBom } from "./ui/bomTable";
 import { el } from "./ui/dom";
 import { renderForm, showIssues } from "./ui/form";
+import { forgetPersistentStorage, loadBed, loadRack, saveBed, saveRack } from "./ui/storage";
 import { onHashChange, readHash, shareUrl, writeHash } from "./ui/hash";
 
 export interface ConfiguratorOptions {
   /** Base URL of the exported part meshes; omit to draw schematic boxes. */
   partsUrl?: string;
-}
-
-const BED_STORAGE_KEY = "homeracker.printerBed";
-
-function loadBed(): PrinterBed {
-  try {
-    const raw = localStorage.getItem(BED_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_BED };
-    const parsed = JSON.parse(raw) as Partial<PrinterBed>;
-    const ok = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 50;
-    return ok(parsed.x) && ok(parsed.y) && ok(parsed.z) ? { x: parsed.x!, y: parsed.y!, z: parsed.z! } : { ...DEFAULT_BED };
-  } catch {
-    return { ...DEFAULT_BED };
-  }
-}
-
-function saveBed(bed: PrinterBed): void {
-  try {
-    localStorage.setItem(BED_STORAGE_KEY, JSON.stringify(bed));
-  } catch {
-    // Storage may be unavailable (private mode); the bed then lives for this page only.
-  }
 }
 
 /**
@@ -49,6 +28,8 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
   const stage = el("div", { class: "cfg-stage" }, [canvas]);
   const bomRoot = el("section", { class: "cfg-bom", "aria-label": "Parts list" });
   root.replaceChildren(el("div", { class: "cfg" }, [controls, stage, bomRoot]));
+
+  forgetPersistentStorage();
 
   let current: RackConfig = defaultConfig();
   let bed: PrinterBed = loadBed();
@@ -92,6 +73,8 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
       shareUrl: () => shareUrl(config),
     });
     writeHash(config);
+    // Same moment as the hash: one place where a valid rack is committed, so the two cannot drift.
+    saveRack(config);
     return true;
   };
 
@@ -114,7 +97,8 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
   );
 
   form.writeBed(bed);
-  const initial = readHash() ?? defaultConfig();
+  // A link someone shared always wins; otherwise pick up where this tab left off.
+  const initial = readHash() ?? loadRack() ?? defaultConfig();
   form.write(initial);
   if (!apply(initial)) {
     form.write(defaultConfig());
