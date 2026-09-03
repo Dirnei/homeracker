@@ -20,6 +20,8 @@ import type { Opening, RackModel, Vec3 } from "../engine/types";
 import { buildRackGroup } from "./build";
 import { createMaterials } from "./materials";
 import { buildRealRack, PartLibrary } from "./meshes";
+import type { CubeZone } from "./viewcube";
+import { createViewCube } from "./viewcubeGizmo";
 
 export interface Viewer {
   /** Draw the model; parts whose parts-list key is in `flagged` are tinted as not printable. */
@@ -77,6 +79,7 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
   camera.up.set(0, 0, 1);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = false;
+  const cube = createViewCube();
 
   scene.add(new AmbientLight("#ffffff", 1.2));
   const sun = new DirectionalLight("#ffffff", 2);
@@ -122,25 +125,69 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     options.onHover?.(mesh ? (mesh.userData.opening as Opening) : null);
   };
 
-  if (options.onOpening) {
-    canvas.addEventListener("pointermove", (event) => setHovered(pick(event)));
-    canvas.addEventListener("pointerleave", () => setHovered(null));
-    canvas.addEventListener("pointerdown", (event) => {
-      pressed = { x: event.clientX, y: event.clientY };
-    });
-    canvas.addEventListener("pointerup", (event) => {
-      const moved = pressed ? Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) : Infinity;
-      pressed = null;
-      if (moved > 4) return;
-      const mesh = pick(event);
-      if (mesh) options.onOpening?.(mesh.userData.opening as Opening);
-    });
-  }
+  canvas.addEventListener("pointermove", (event) => {
+    const zone = cubeZoneAt(event);
+    if (cube.setHovered(zone)) render();
+    if (zone) {
+      // The gizmo owns the pointer here; an opening underneath must not light up as well.
+      setHovered(null);
+      canvas.style.cursor = "pointer";
+      return;
+    }
+    setHovered(options.onOpening ? pick(event) : null);
+  });
+  canvas.addEventListener("pointerleave", () => {
+    if (cube.setHovered(null)) render();
+    setHovered(null);
+  });
+  canvas.addEventListener("pointerdown", (event) => {
+    pressed = { x: event.clientX, y: event.clientY };
+  });
+  canvas.addEventListener("pointerup", (event) => {
+    const moved = pressed ? Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) : Infinity;
+    pressed = null;
+    if (moved > 4) return;
+    const zone = cubeZoneAt(event);
+    if (zone) {
+      swingTo(zone);
+      return;
+    }
+    const mesh = options.onOpening ? pick(event) : null;
+    if (mesh) options.onOpening?.(mesh.userData.opening as Opening);
+  });
   let framedExtent: Vec3 | null = null;
   const library = options.partsUrl ? PartLibrary.load(options.partsUrl) : Promise.resolve(null);
   let generation = 0;
 
-  const render = () => renderer.render(scene, camera);
+  const render = () => {
+    renderer.render(scene, camera);
+    cube.draw(renderer, camera, controls.target);
+  };
+
+  /** Swing the camera to look at the rack from `zone`, keeping the current target and distance. */
+  let swing = 0;
+  const swingTo = (zone: CubeZone) => {
+    const from = camera.position.clone();
+    const distance = from.distanceTo(controls.target) || 10;
+    const to = cube.positionFor(zone, controls.target, distance);
+    const started = performance.now();
+    const ticket = ++swing;
+    const step = () => {
+      if (ticket !== swing) return;
+      const t = Math.min(1, (performance.now() - started) / 250);
+      const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      camera.position.lerpVectors(from, to, eased);
+      controls.update();
+      render();
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  const cubeZoneAt = (event: PointerEvent): CubeZone | null => {
+    const rect = canvas.getBoundingClientRect();
+    return cube.hitTest(event.clientX - rect.left, event.clientY - rect.top, rect.width);
+  };
 
   const resize = () => {
     const { clientWidth, clientHeight } = canvas;
