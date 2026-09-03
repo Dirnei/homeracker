@@ -104,6 +104,8 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
         bed = form.readBed();
         saveBed(bed);
         const result = form.read();
+        // A half-typed gap is not a mistake: leave the rack and the issue list as they are.
+        if ("pending" in result) return;
         if ("error" in result) showIssues(controls, [result.error]);
         else apply(result.config);
       }, 100);

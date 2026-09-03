@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
 import { closeFace, closeOpenings, closeReason, edgeConnectors, openings, panelAt, panelPins, panelSize, togglePanel } from "../src/engine/panels";
 import type { PanelSpec } from "../src/engine/types";
-import { exampleA, stepped, twoColumns } from "./fixtures";
+import { exampleA, stepped, twoColumns, uShape } from "./fixtures";
 
 const spec = (face: PanelSpec["face"], at: number, index: number, type: PanelSpec["type"] = "interfit"): PanelSpec => ({
   face,
@@ -64,6 +64,37 @@ describe("openings", () => {
   test("openings have stable ids", () => {
     expect(openings(exampleA).map((o) => o.id)).toContain("front:1:0");
     expect(openings(exampleA).map((o) => o.id)).toContain("horizontal:2:0");
+  });
+
+  test("a gap has no bay, so no front or back opening", () => {
+    const front = openings(uShape).filter((o) => o.face === "front" && o.at === 1);
+    expect(front.map((o) => [o.index, o.length, o.origin])).toEqual([
+      [0, 6, [0, 0, 6]],
+      [2, 6, [18, 0, 6]],
+    ]);
+  });
+
+  test("each segment of a row gets its own left and right opening", () => {
+    const sides = openings(uShape).filter((o) => (o.face === "left" || o.face === "right") && o.at === 1);
+    expect(sides.map((o) => [o.face, o.index, o.length, o.height, o.origin])).toEqual([
+      ["left", 0, 6, 4, [0, 0, 6]],
+      ["right", 0, 6, 4, [7, 0, 6]],
+      ["left", 1, 6, 4, [18, 0, 6]],
+      ["right", 1, 6, 4, [25, 0, 6]],
+    ]);
+  });
+
+  test("a row without gaps keeps left and right at index 0", () => {
+    const sides = openings(exampleA).filter((o) => o.face === "left" || o.face === "right");
+    expect(sides.map((o) => o.index)).toEqual([0, 0, 0, 0]);
+  });
+
+  test("a frame span with no beam has no horizontal opening, and the others keep their index", () => {
+    const top = openings(uShape).filter((o) => o.face === "horizontal" && o.at === 2);
+    expect(top.map((o) => [o.index, o.length, o.origin])).toEqual([
+      [0, 6, [0, 0, 11]],
+      [2, 6, [18, 0, 11]],
+    ]);
   });
 });
 

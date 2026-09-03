@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildModel } from "../src/engine/model";
 import type { RackModel, RackNode } from "../src/engine/types";
-import { exampleA, exampleB, invariantRack, mixedPosts, shortBeam, smallestRack, stepped, twoColumns } from "./fixtures";
+import { bottomU, exampleA, exampleB, invariantRack, mixedPosts, shortBeam, smallestRack, stepped, twoColumns, uShape } from "./fixtures";
 
 const sorted = (node: RackNode) => [...node.arms].sort().join(",");
 const nodesAtZ = (model: RackModel, z: number) => model.nodes.filter((n) => n.pos[2] === z);
@@ -72,6 +72,16 @@ describe("buildModel frame", () => {
     expect(model.problems[0]?.supportIds).toHaveLength(2);
     expect(model.problems[0]?.rows).toEqual([0, 1]);
   });
+
+  test("a gap leaves the frame above it open and the flanking nodes as corners", () => {
+    const model = buildModel(uShape);
+    expect(model.nodes).toHaveLength(24);
+    expect(lengths(model, "x")).toEqual([6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 10, 10, 10, 10]);
+    // Top frame: the post and the depth support stay, the beam over the gap is gone.
+    expect(sorted(node(model, "n:7,0,11")!)).toBe("+y,-x,-z");
+    // Shelf under the gap: the row below spans it, so the node keeps both beams.
+    expect(sorted(node(model, "n:7,0,6")!)).toBe("+x,+y,+z,-x,-z");
+  });
 });
 
 describe("buildModel arms", () => {
@@ -137,5 +147,21 @@ describe("buildModel columns", () => {
     const model = buildModel({ ...stepped, rows: [stepped.rows[0]!, { height: 3, columns: [3], shift: 2, through: false }] });
     expect(nodesAtZ(model, 8).map((n) => n.pos[0]).sort((a, b) => a - b)).toEqual([2, 2, 6, 6]);
     expect(sorted(node(model, "n:2,0,4")!)).toBe("+x,+y,+z,-x");
+  });
+});
+
+describe("disconnected racks", () => {
+  test("a U standing on the floor is two separate racks", () => {
+    const { problems } = buildModel(bottomU);
+    expect(problems.map((p) => p.message)).toEqual(["the rack falls into 2 separate parts; nothing joins them"]);
+    expect(problems[0]?.rows).toEqual([0]);
+  });
+
+  test("a U carried by a row that spans its gap is one rack", () => {
+    expect(buildModel(uShape).problems).toEqual([]);
+  });
+
+  test("an ordinary rack reports nothing", () => {
+    expect(buildModel(stepped).problems).toEqual([]);
   });
 });

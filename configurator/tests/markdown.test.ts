@@ -3,12 +3,18 @@ import { computeBom } from "../src/engine/bom";
 import { bomToMarkdown, describeConfig } from "../src/engine/markdown";
 import { buildModel } from "../src/engine/model";
 import { closeFace } from "../src/engine/panels";
-import { exampleA, exampleB, twoColumns } from "./fixtures";
+import { exampleA, exampleB, twoColumns, uShape } from "./fixtures";
 
 describe("describeConfig", () => {
   test("lists rows top to bottom with their columns", () => {
     expect(describeConfig(exampleA)).toBe("depth 6 units; rows top to bottom: 6 wide x 4 high, 6 wide x 5 high; feet");
     expect(describeConfig(twoColumns)).toBe("depth 6 units; rows top to bottom: 4+4 wide x 5 high; feet");
+  });
+
+  test("marks a gap column distinctly instead of showing its raw negative width", () => {
+    expect(describeConfig(uShape)).toBe(
+      "depth 6 units; rows top to bottom: 6+gap 10+6 wide x 4 high, 6+10+6 wide x 5 high; no feet",
+    );
   });
 
   test("uses row names when given", () => {

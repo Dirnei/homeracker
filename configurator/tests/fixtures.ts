@@ -65,3 +65,35 @@ export const mixedPosts: RackConfig = {
   feet: false,
   panels: [],
 };
+
+/** A U: a bottom row of 6+10+6 carrying two towers with a 10-unit gap between them. */
+export const uShape: RackConfig = {
+  depth: 6,
+  rows: [row(5, [6, 10, 6]), row(4, [6, -10, 6])],
+  feet: false,
+  panels: [],
+};
+
+/** The same U row standing on the floor: nothing spans under its gap. */
+export const bottomU: RackConfig = {
+  depth: 6,
+  rows: [row(4, [6, -10, 6])],
+  feet: false,
+  panels: [],
+};
+
+/** Two rows that do not overlap: the frame between them bridges the space with a beam. */
+export const sideBySide: RackConfig = {
+  depth: 4,
+  rows: [row(3, [3]), row(3, [3], 7)],
+  feet: false,
+  panels: [],
+};
+
+/** The U with a full-width row stacked on it: the gap stays open, the new row keeps its own top. */
+export const uShapeStacked: RackConfig = {
+  depth: 6,
+  rows: [row(5, [6, 10, 6]), row(4, [6, -10, 6]), row(4, [24])],
+  feet: false,
+  panels: [],
+};

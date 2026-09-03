@@ -30,7 +30,7 @@ export interface RackRow {
 export interface PanelSpec {
   face: PanelFace;
   at: number;
-  /** Column index (front/back), span index (horizontal), always 0 for left/right. */
+  /** Column index (front/back), span index (horizontal), segment index (left/right). */
   index: number;
   type: PanelType;
 }

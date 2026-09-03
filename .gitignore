@@ -45,3 +45,6 @@ site/dist/
 site/.astro/
 site/public/parts/
 _site/
+
+# Superpowers SDD scratch (ledger, briefs, review packages)
+.superpowers/

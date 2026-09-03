@@ -1,5 +1,5 @@
 import { LIMITS } from "./constants";
-import { frames, rowBoundaries } from "./lattice";
+import { frames, isGap, rowBoundaries, rowSegments } from "./lattice";
 import type { FaceGroup, Opening, PanelSpec, PanelType, RackConfig, RackPanel } from "./types";
 
 /**
@@ -26,7 +26,10 @@ export function openingId(face: PanelSpec["face"], at: number, index: number): s
   return `${face}:${at}:${index}`;
 }
 
-/** Every opening of the rack: per row the front/back bays and the left/right sides, per frame its spans. */
+/**
+ * Every opening of the rack: per row the bays it has at the front and the back and the sides of
+ * each of its segments, per frame the spans that carry a beam.
+ */
 export function openings(config: RackConfig): Opening[] {
   const list: Opening[] = [];
   const levels = frames(config);
@@ -36,20 +39,24 @@ export function openings(config: RackConfig): Opening[] {
     const z = levels[r]?.z ?? 0;
     const xs = rowBoundaries(row);
     row.columns.forEach((width, i) => {
+      // A gap has no beam above it, so nothing bounds a bay there.
+      if (isGap(width)) return;
       const x = xs[i] ?? 0;
       list.push({ id: openingId("front", r, i), face: "front", at: r, index: i, length: width, height: row.height, origin: [x, 0, z], normal: "-y" });
       list.push({ id: openingId("back", r, i), face: "back", at: r, index: i, length: width, height: row.height, origin: [x, yFar, z], normal: "+y" });
     });
-    const left = xs[0] ?? 0;
-    const right = xs[xs.length - 1] ?? 0;
-    list.push({ id: openingId("left", r, 0), face: "left", at: r, index: 0, length: config.depth, height: row.height, origin: [left, 0, z], normal: "-x" });
-    list.push({ id: openingId("right", r, 0), face: "right", at: r, index: 0, length: config.depth, height: row.height, origin: [right, 0, z], normal: "+x" });
+    rowSegments(row).forEach((segment, s) => {
+      list.push({ id: openingId("left", r, s), face: "left", at: r, index: s, length: config.depth, height: row.height, origin: [segment.left, 0, z], normal: "-x" });
+      list.push({ id: openingId("right", r, s), face: "right", at: r, index: s, length: config.depth, height: row.height, origin: [segment.right, 0, z], normal: "+x" });
+    });
   });
 
   levels.forEach((frame, k) => {
     for (let i = 0; i + 1 < frame.xs.length; i++) {
       const a = frame.xs[i]!;
       const b = frame.xs[i + 1]!;
+      // The index stays the ordinal of the pair, so the spans that remain keep the ids they had.
+      if (!frame.beams.some(([from, to]) => from === a && to === b)) continue;
       list.push({
         id: openingId("horizontal", k, i),
         face: "horizontal",

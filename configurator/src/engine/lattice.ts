@@ -1,11 +1,16 @@
 import type { RackConfig, RackRow } from "./types";
 
-/** x coordinates of the nodes bounding a row's bays: one per column boundary. */
+/** A column is a gap when its width is negative: the same space as a bay, with no beam above it. */
+export function isGap(width: number): boolean {
+  return width < 0;
+}
+
+/** x coordinates of the nodes bounding a row's bays: one per column boundary. A gap takes its magnitude. */
 export function rowBoundaries(row: RackRow): number[] {
   const xs = [row.shift];
   let x = row.shift;
   for (const width of row.columns) {
-    x += width + 1;
+    x += Math.abs(width) + 1;
     xs.push(x);
   }
   return xs;
@@ -13,7 +18,34 @@ export function rowBoundaries(row: RackRow): number[] {
 
 /** Outer width of a row in units, including its bounding nodes. */
 export function rowWidth(row: RackRow): number {
-  return row.columns.reduce((n, w) => n + w, 0) + row.columns.length + 1;
+  return row.columns.reduce((n, w) => n + Math.abs(w), 0) + row.columns.length + 1;
+}
+
+/** A run of neighbouring bays: the parts of a row a gap leaves standing. */
+export interface RowSegment {
+  /** First and last column index of the run. */
+  from: number;
+  to: number;
+  /** x of the boundary on each side of the run. */
+  left: number;
+  right: number;
+}
+
+/** Maximal runs of bays, left to right. A row without gaps has exactly one segment. */
+export function rowSegments(row: RackRow): RowSegment[] {
+  const xs = rowBoundaries(row);
+  const list: RowSegment[] = [];
+  let start = -1;
+  row.columns.forEach((width, i) => {
+    if (!isGap(width)) {
+      if (start < 0) start = i;
+      return;
+    }
+    if (start >= 0) list.push({ from: start, to: i - 1, left: xs[start]!, right: xs[i]! });
+    start = -1;
+  });
+  if (start >= 0) list.push({ from: start, to: row.columns.length - 1, left: xs[start]!, right: xs[row.columns.length]! });
+  return list;
 }
 
 export interface Frame {
@@ -21,6 +53,20 @@ export interface Frame {
   z: number;
   /** x coordinates of the frame's nodes: the boundaries of the rows below and above, merged. */
   xs: number[];
+  /** Neighbouring pairs of `xs` that carry an x beam, at the front and the back face. */
+  beams: [number, number][];
+}
+
+type Cover = "bay" | "gap" | "none";
+
+/** How a row covers the span between two frame nodes: the column holding it is a bay, a gap, or the row is elsewhere. */
+function coverage(row: RackRow | undefined, a: number, b: number): Cover {
+  if (!row) return "none";
+  const xs = rowBoundaries(row);
+  for (let i = 0; i < row.columns.length; i++) {
+    if (xs[i]! <= a && xs[i + 1]! >= b) return isGap(row.columns[i]!) ? "gap" : "bay";
+  }
+  return "none";
 }
 
 /** Frames from the floor to the top: one below the first row, one between rows, one above the last. */
@@ -30,10 +76,23 @@ export function frames(config: RackConfig): Frame[] {
   for (let k = 0; k <= config.rows.length; k++) {
     const below = config.rows[k - 1];
     const above = config.rows[k];
-    const xs = new Set<number>();
-    if (below) for (const x of rowBoundaries(below)) xs.add(x);
-    if (above) for (const x of rowBoundaries(above)) xs.add(x);
-    list.push({ z, xs: [...xs].sort((a, b) => a - b) });
+    const set = new Set<number>();
+    if (below) for (const x of rowBoundaries(below)) set.add(x);
+    if (above) for (const x of rowBoundaries(above)) set.add(x);
+    const xs = [...set].sort((a, b) => a - b);
+    const beams: [number, number][] = [];
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const span: [number, number] = [xs[i]!, xs[i + 1]!];
+      const under = coverage(below, ...span);
+      const over = coverage(above, ...span);
+      // A gap stays open to the sky: whatever is stacked on the row does not put its beam back.
+      if (under === "gap") continue;
+      // Under a gap the beam survives only where a bay of the row below spans the same place.
+      if (over === "gap" && under !== "bay") continue;
+      // Where neither row reaches, the beam stays: it is what bridges rows standing side by side.
+      beams.push(span);
+    }
+    list.push({ z, xs, beams });
     if (above) z += above.height + 1;
   }
   return list;

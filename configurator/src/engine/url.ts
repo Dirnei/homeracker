@@ -25,15 +25,21 @@ function integer(value: string | undefined): number | null {
   return Number(value);
 }
 
+/** A column width: a bay, or a gap written as the negative of its width. */
+function columnWidth(value: string | undefined): number | null {
+  if (value === undefined || !/^-?\d+$/.test(value)) return null;
+  return Number(value);
+}
+
 /** Row token: `height:width.width[~shift][*]`; `*` marks posts continuing from the row below. Rows joined with `_`. */
 function encodeRow(row: RackRow): string {
   return `${row.height}:${row.columns.join(".")}${row.shift ? `~${row.shift}` : ""}${row.through ? "*" : ""}`;
 }
 
 function decodeRow(token: string): RackRow | null {
-  const match = /^(\d+):([\d.]+)(?:~(\d+))?(\*)?$/.exec(token);
+  const match = /^(\d+):([\d.-]+)(?:~(\d+))?(\*)?$/.exec(token);
   if (!match) return null;
-  const columns = match[2]!.split(".").map(integer);
+  const columns = match[2]!.split(".").map(columnWidth);
   if (columns.some((c) => c === null)) return null;
   return { height: Number(match[1]), columns: columns as number[], shift: match[3] ? Number(match[3]) : 0, through: match[4] === "*" };
 }

@@ -1,16 +1,17 @@
 import { BASE_UNIT, LIMITS } from "../engine/constants";
-import { frames, rowWidth } from "../engine/lattice";
+import { frames, rowSegments, rowWidth } from "../engine/lattice";
 import { faceDiagrams, type Diagram } from "../engine/diagrams";
 import { closeOpenings, closeReason, openings, panelAt, togglePanel } from "../engine/panels";
 import type { Opening, PanelSpec, PanelType, RackConfig, RackRow } from "../engine/types";
 import { DEFAULT_BED, type PrinterBed } from "../engine/printer";
 import { MAX_ROW_NAME } from "../engine/url";
 import { el, qs } from "./dom";
-import { parseUnitList } from "./parse";
+import { isPartialUnitList, parseUnitList } from "./parse";
 
 const TYPE_LABEL: Record<PanelType | "open", string> = { open: "open", interfit: "inter-fit", fullcover: "full cover" };
 
-export type FormResult = { config: RackConfig } | { error: string };
+/** `pending` means a column list is half-typed: keep the rack as it stands and say nothing yet. */
+export type FormResult = { config: RackConfig } | { error: string } | { pending: true };
 
 export interface RackForm {
   read(): FormResult;
@@ -69,13 +70,15 @@ function choice(type: "checkbox" | "radio", name: string, id: string, label: str
 const SVG = "http://www.w3.org/2000/svg";
 
 /** Human label of an opening for tooltips and screen readers. */
-function openingLabel(opening: Opening): string {
+function openingLabel(opening: Opening, config: RackConfig): string {
   if (opening.face === "horizontal") {
     const level = opening.at === 0 ? "bottom" : `top of row ${opening.at}`;
     return `${level}, span ${opening.index + 1}`;
   }
-  const bay = opening.face === "front" || opening.face === "back" ? `, bay ${opening.index + 1}` : "";
-  return `${opening.face}, row ${opening.at + 1}${bay}`;
+  if (opening.face === "front" || opening.face === "back") return `${opening.face}, row ${opening.at + 1}, bay ${opening.index + 1}`;
+  const row = config.rows[opening.at];
+  const sections = row ? rowSegments(row).length : 1;
+  return `${opening.face}, row ${opening.at + 1}${sections > 1 ? `, section ${opening.index + 1}` : ""}`;
 }
 
 /** A to-scale SVG of one face; every opening is a focusable rectangle that cycles its panel state. */
@@ -99,7 +102,7 @@ function diagramView(diagram: Diagram, config: RackConfig): HTMLElement {
     const reason = closeReason(config, cell.opening);
     const closable = reason === null;
     const state = panelAt(config, cell.opening) ?? "open";
-    const label = openingLabel(cell.opening);
+    const label = openingLabel(cell.opening, config);
     const size = `${cell.opening.length}x${cell.opening.height} units`;
     const problem = !closable && state !== "open";
     const text = closable
@@ -189,7 +192,8 @@ function rowCard(draft: RowDraft, index: number): HTMLElement {
       ]),
       el("div", { class: "field wide" }, [
         el("label", { for: id("columns") }, ["Column widths"]),
-        el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4" }),
+        el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4 or 6, -10, 6" }),
+        el("small", { class: "cfg-hint" }, ["A negative width is a gap: the same space, with no beam above it."]),
       ]),
     ]),
     el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
@@ -329,7 +333,7 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     const diagrams = faceDiagrams(config);
     const groups: [string, Diagram[]][] = [
       ["Front and back", diagrams.filter((d) => d.id === "front" || d.id === "back")],
-      ["Sides", diagrams.filter((d) => d.id === "left" || d.id === "right")],
+      ["Sides", diagrams.filter((d) => d.id === "left" || d.id === "right" || d.id.startsWith("gap:"))],
       ["Tops and bottom", diagrams.filter((d) => d.id.startsWith("horizontal"))],
     ];
     faces.replaceChildren(
@@ -488,7 +492,10 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     },
     read() {
       const config = draftConfig();
-      if (!config) return { error: "column widths must be whole numbers separated by commas" };
+      if (!config) {
+        if (drafts.some((d) => parseUnitList(d.columns) === null && isPartialUnitList(d.columns))) return { pending: true };
+        return { error: "column widths must be whole numbers separated by commas; a negative width is a gap" };
+      }
       // Drop panels whose opening no longer exists after a structural edit.
       const all = openings(config);
       panels = panels.filter((p) => all.some((o) => o.face === p.face && o.at === p.at && o.index === p.index));

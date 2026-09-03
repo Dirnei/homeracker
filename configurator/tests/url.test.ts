@@ -3,7 +3,7 @@ import { defaultConfig } from "../src/engine/defaults";
 import { closeFace } from "../src/engine/panels";
 import type { RackConfig } from "../src/engine/types";
 import { decodeConfig, encodeConfig } from "../src/engine/url";
-import { exampleB, mixedPosts, stepped, twoColumns } from "./fixtures";
+import { exampleB, mixedPosts, stepped, twoColumns, uShape } from "./fixtures";
 
 describe("encodeConfig", () => {
   test("produces a compact query string", () => {
@@ -90,5 +90,19 @@ describe("decodeConfig", () => {
     expect(decodeConfig("v=4&d=6&r=5:6**&f=1")).toBeNull();
     expect(decodeConfig("v=4&d=6&r=5:6&f=1&pn=x0.0i")).toBeNull();
     expect(decodeConfig("v=3&d=6&r=5:6&f=1&p=zigzag")).toBeNull();
+  });
+});
+
+describe("gap columns in links", () => {
+  test("a gap travels as a negative width", () => {
+    expect(encodeConfig(uShape)).toBe("v=4&d=6&r=5:6.10.6_4:6.-10.6&f=0");
+  });
+
+  test("round trips", () => {
+    expect(decodeConfig(`#${encodeConfig(uShape)}`)).toEqual(uShape);
+  });
+
+  test("the version stays 4, so an older build still reads links without gaps", () => {
+    expect(decodeConfig("#v=4&d=6&r=5:6_4:6&f=1")).toEqual(defaultConfig());
   });
 });

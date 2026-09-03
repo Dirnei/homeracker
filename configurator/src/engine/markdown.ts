@@ -6,7 +6,8 @@ export function describeConfig(config: RackConfig): string {
     .map((row, i, list) => {
       const notes = [row.shift ? `shift ${row.shift}` : "", row.through && i < list.length - 1 ? "posts continue" : ""].filter(Boolean);
       const label = row.name ? `${row.name}: ` : "";
-      return `${label}${row.columns.join("+")} wide x ${row.height} high${notes.length ? ` (${notes.join(", ")})` : ""}`;
+      const columns = row.columns.map((w) => (w < 0 ? `gap ${-w}` : `${w}`)).join("+");
+      return `${label}${columns} wide x ${row.height} high${notes.length ? ` (${notes.join(", ")})` : ""}`;
     })
     .join(", ");
   const feet = config.feet ? "feet" : "no feet";

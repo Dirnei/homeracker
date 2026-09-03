@@ -1,5 +1,5 @@
 import { LIMITS } from "./constants";
-import { frames, rowBoundaries } from "./lattice";
+import { frames, isGap, rowBoundaries } from "./lattice";
 import { buildPanels, openings } from "./panels";
 import type { Axis, Dir, RackConfig, RackModel, RackNode, RackProblem, RackSupport, Vec3 } from "./types";
 
@@ -74,6 +74,39 @@ class Lattice {
 }
 
 /**
+ * A rack is one piece. A gap with nothing spanning under it leaves the parts on either side
+ * standing free, which is two racks rather than one; say so instead of shipping a parts list for it.
+ */
+function disconnectedProblems(config: RackConfig, nodes: RackNode[], supports: RackSupport[]): RackProblem[] {
+  if (nodes.length === 0) return [];
+  const parent = new Map(nodes.map((n) => [n.id, n.id]));
+  const find = (start: string): string => {
+    let root = start;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    for (let id = start; parent.get(id) !== root; ) {
+      const next = parent.get(id)!;
+      parent.set(id, root);
+      id = next;
+    }
+    return root;
+  };
+  for (const s of supports) {
+    const [first, ...rest] = s.nodeIds;
+    if (!first) continue;
+    for (const id of rest) parent.set(find(id), find(first));
+  }
+  const parts = new Set(nodes.map((n) => find(n.id))).size;
+  if (parts < 2) return [];
+  return [
+    {
+      message: `the rack falls into ${parts} separate parts; nothing joins them`,
+      rows: config.rows.flatMap((row, i) => (row.columns.some(isGap) ? [i] : [])),
+      supportIds: [],
+    },
+  ];
+}
+
+/**
  * Beams shorter than two units between two connectors cannot be assembled (each arm needs a unit).
  * They arise when the dividers of neighbouring rows land close together on the frame between them.
  */
@@ -124,7 +157,7 @@ export function buildModel(config: RackConfig): RackModel {
 
   for (const frame of levels) {
     for (const y of ys) {
-      for (let i = 0; i + 1 < frame.xs.length; i++) lattice.support("x", [0, y, frame.z], frame.xs[i]!, frame.xs[i + 1]!);
+      for (const [a, b] of frame.beams) lattice.support("x", [0, y, frame.z], a, b);
     }
     for (const x of frame.xs) lattice.support("y", [x, 0, frame.z], 0, config.depth + 1);
   }
@@ -149,13 +182,14 @@ export function buildModel(config: RackConfig): RackModel {
 
   const maxX = Math.max(...levels.flatMap((f) => f.xs));
   const all = openings(config);
+  const nodes = [...lattice.nodes.values()];
   return {
     config,
-    nodes: [...lattice.nodes.values()],
+    nodes,
     supports: lattice.supports,
     openings: all,
     panels: buildPanels(config, all),
-    problems: shortBeamProblems(config, lattice.supports),
+    problems: [...shortBeamProblems(config, lattice.supports), ...disconnectedProblems(config, nodes, lattice.supports)],
     extent: [maxX + 1, config.depth + 2, (levels[levels.length - 1]?.z ?? 0) + 1],
   };
 }

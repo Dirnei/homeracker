@@ -52,4 +52,25 @@ describe("validate", () => {
   test("ignores panels whose opening no longer exists", () => {
     expect(validate(cfg({ panels: [{ face: "front", at: 9, index: 0, type: "interfit" }] }))).toEqual([]);
   });
+
+  test("accepts a gap between two bays", () => {
+    expect(fields(cfg({ rows: rows([4, [6, -10, 6]]) }))).toEqual([]);
+  });
+
+  test("holds a gap to the same span limits as a bay", () => {
+    expect(fields(cfg({ rows: rows([4, [6, -1, 6]]) }))).toEqual(["rows"]);
+    expect(fields(cfg({ rows: rows([4, [6, -51, 6]]) }))).toEqual(["rows"]);
+  });
+
+  test("rejects a gap without a bay on both sides of it", () => {
+    expect(fields(cfg({ rows: rows([4, [-10, 6]]) }))).toEqual(["rows"]);
+    expect(fields(cfg({ rows: rows([4, [6, -10]]) }))).toEqual(["rows"]);
+    expect(fields(cfg({ rows: rows([4, [6, -4, -4, 6]]) }))).toEqual(["rows"]);
+    expect(fields(cfg({ rows: rows([4, [-6]]) }))).toEqual(["rows"]);
+  });
+
+  test("says what a gap needs", () => {
+    const [issue] = validate(cfg({ rows: rows([4, [-10, 6]]) }));
+    expect(issue?.message).toMatch(/gap needs a bay on both sides/i);
+  });
 });

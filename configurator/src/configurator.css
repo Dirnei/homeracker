@@ -459,6 +459,13 @@
   font-size: 0.85rem;
 }
 
+.cfg-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
 /* Opening legend swatches and face diagrams */
 
 .cfg .cfg-open {
