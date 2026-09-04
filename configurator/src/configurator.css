@@ -382,7 +382,6 @@
 }
 
 .cfg-row.is-collapsed .cfg-row-fields,
-.cfg-row.is-collapsed .cfg-row-size,
 .cfg-row.is-collapsed .cfg-through {
   display: none;
 }
@@ -453,17 +452,62 @@
   padding: 0.3rem 0.5rem;
 }
 
-.cfg-row-size {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 0.85rem;
+/* Column syntax info popover */
+
+.cfg .cfg-info-btn {
+  margin: 0;
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--cfg-muted);
+  background: transparent;
+  border: none;
+  clip-path: none;
+  cursor: pointer;
+  vertical-align: middle;
 }
 
-.cfg-hint {
-  display: block;
-  margin-top: 0.25rem;
+.cfg .cfg-info-btn:hover,
+.cfg .cfg-info-btn:focus-visible {
+  color: var(--cfg-accent);
+  background: transparent;
+}
+
+.cfg-info-tip {
+  position: fixed;
+  z-index: 9999;
+  width: max-content;
+  max-width: 280px;
+  padding: 0.6rem 0.75rem;
+  background: var(--cfg-panel-2, #1c1f26);
+  border: 1px solid var(--cfg-line, #2a2e38);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  color: var(--cfg-text, #e8e6df);
+}
+
+.cfg-info-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.6rem;
+}
+
+.cfg-info-list dt {
+  font-family: var(--cfg-label, "Source Code Pro", ui-monospace, monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cfg-accent, #f7b600);
+  white-space: nowrap;
+}
+
+.cfg-info-list dd {
+  margin: 0;
   font-size: 0.8rem;
-  opacity: 0.75;
+  color: var(--cfg-muted, #a3a49f);
+  line-height: 1.4;
 }
 
 /* Outer size: the conclusion of the rows panel, so it gets its own block. */

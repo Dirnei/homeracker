@@ -106,3 +106,44 @@ describe("gap columns in links", () => {
     expect(decodeConfig("#v=4&d=6&r=5:6_4:6&f=1")).toEqual(defaultConfig());
   });
 });
+
+describe("bottom bars in links", () => {
+  test("a bar travels as _ prefix on a column", () => {
+    const config: RackConfig = {
+      ...uShape,
+      rows: [uShape.rows[0]!, { ...uShape.rows[1]!, bars: [0] }],
+    };
+    expect(encodeConfig(config)).toBe("v=4&d=6&r=5:6.10.6_4:_6.-10.6&f=0");
+    expect(decodeConfig(encodeConfig(config))).toEqual(config);
+  });
+});
+
+describe("auto-fill columns in links", () => {
+  test("an auto column travels as ?", () => {
+    const config: RackConfig = {
+      depth: 6,
+      rows: [
+        { height: 5, columns: [6, 10, 6], shift: 0, through: false },
+        { height: 4, columns: [0], shift: 0, through: false, autos: [0] },
+      ],
+      feet: false,
+      panels: [],
+    };
+    expect(encodeConfig(config)).toBe("v=4&d=6&r=5:6.10.6_4:?&f=0");
+    expect(decodeConfig(encodeConfig(config))).toEqual(config);
+  });
+
+  test("auto with bar prefix round-trips", () => {
+    const config: RackConfig = {
+      depth: 6,
+      rows: [
+        { height: 5, columns: [6, 10, 6], shift: 0, through: false },
+        { height: 4, columns: [0, 4], shift: 0, through: false, autos: [0], bars: [0] },
+      ],
+      feet: false,
+      panels: [],
+    };
+    expect(encodeConfig(config)).toBe("v=4&d=6&r=5:6.10.6_4:_?.4&f=0");
+    expect(decodeConfig(encodeConfig(config))).toEqual(config);
+  });
+});

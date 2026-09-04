@@ -22,6 +22,10 @@ export interface RackRow {
    * instead of ending in a standard connector and starting a new support. Ignored on the bottom row.
    */
   through: boolean;
+  /** Column indices whose bottom beam is forced despite a gap in the row below. */
+  bars?: number[];
+  /** Column indices whose width was computed from `?` (auto-fill to match the row below). */
+  autos?: number[];
   /** Optional label shown in the editor and the parts list, e.g. "Servers". */
   name?: string;
 }

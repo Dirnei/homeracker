@@ -1,5 +1,6 @@
 import { closeFace } from "./panels";
 import type { FaceGroup, PanelFace, PanelSpec, PanelType, RackConfig, RackRow } from "./types";
+import { parseOneColumn } from "../ui/parse";
 
 const FACE_CODE: Record<PanelFace, string> = { front: "f", back: "b", left: "l", right: "r", horizontal: "h" };
 const GROUPS_V2: FaceGroup[] = ["front", "back", "left", "right", "top", "bottom"];
@@ -25,23 +26,40 @@ function integer(value: string | undefined): number | null {
   return Number(value);
 }
 
-/** A column width: a bay, or a gap written as the negative of its width. */
-function columnWidth(value: string | undefined): number | null {
-  if (value === undefined || !/^-?\d+$/.test(value)) return null;
-  return Number(value);
+function decodeColumn(value: string | undefined) {
+  if (value === undefined) return null;
+  const parsed = parseOneColumn(value);
+  if (!parsed) return null;
+  return { width: parsed.width ?? 0, bar: parsed.bar, auto: parsed.width === null };
 }
 
-/** Row token: `height:width.width[~shift][*]`; `*` marks posts continuing from the row below. Rows joined with `_`. */
+export function encodeColumn(row: RackRow, i: number): string {
+  const prefix = row.bars?.includes(i) ? "_" : "";
+  if (row.autos?.includes(i)) return `${prefix}?`;
+  return `${prefix}${row.columns[i]}`;
+}
+
 function encodeRow(row: RackRow): string {
-  return `${row.height}:${row.columns.join(".")}${row.shift ? `~${row.shift}` : ""}${row.through ? "*" : ""}`;
+  const cols = row.columns.map((_, i) => encodeColumn(row, i)).join(".");
+  return `${row.height}:${cols}${row.shift ? `~${row.shift}` : ""}${row.through ? "*" : ""}`;
 }
 
 function decodeRow(token: string): RackRow | null {
-  const match = /^(\d+):([\d.-]+)(?:~(\d+))?(\*)?$/.exec(token);
+  const match = /^(\d+):([\d._?-]+)(?:~(\d+))?(\*)?$/.exec(token);
   if (!match) return null;
-  const columns = match[2]!.split(".").map(columnWidth);
-  if (columns.some((c) => c === null)) return null;
-  return { height: Number(match[1]), columns: columns as number[], shift: match[3] ? Number(match[3]) : 0, through: match[4] === "*" };
+  const parsed = match[2]!.split(".").map(decodeColumn);
+  if (parsed.some((c) => c === null)) return null;
+  const cols = parsed as { width: number; bar: boolean; auto: boolean }[];
+  const bars = cols.flatMap((c, i) => (c.bar ? [i] : []));
+  const autos = cols.flatMap((c, i) => (c.auto ? [i] : []));
+  return {
+    height: Number(match[1]),
+    columns: cols.map((c) => c.width),
+    shift: match[3] ? Number(match[3]) : 0,
+    through: match[4] === "*",
+    ...(bars.length > 0 ? { bars } : {}),
+    ...(autos.length > 0 ? { autos } : {}),
+  };
 }
 
 /** Panel token: face letter, position, `.`, index, type letter: `f0.1i`. */
@@ -72,7 +90,7 @@ export function encodeConfig(config: RackConfig): string {
   config.rows.forEach((row, i) => {
     if (row.name) params.push([`n${i}`, row.name.slice(0, MAX_ROW_NAME)]);
   });
-  const enc = (v: string) => encodeURIComponent(v).replace(/%3A/g, ":").replace(/%2A/g, "*");
+  const enc = (v: string) => encodeURIComponent(v).replace(/%3A/g, ":").replace(/%2A/g, "*").replace(/%3F/g, "?");
   return params.map(([k, v]) => `${enc(k)}=${enc(v)}`).join("&");
 }
 
@@ -117,7 +135,7 @@ function decodeV1(params: Map<string, string>): RackConfig | null {
 
 function decodeRows(params: Map<string, string>): Pick<RackConfig, "depth" | "rows"> | null {
   const depth = integer(params.get("d"));
-  const rows = (params.get("r") ?? "").split("_").map(decodeRow);
+  const rows = (params.get("r") ?? "").split(/_(?=\d+:)/).map(decodeRow);
   if (depth === null || rows.length === 0 || rows.some((r) => r === null)) return null;
   return { depth, rows: rows as RackRow[] };
 }

@@ -1,12 +1,12 @@
 import { BASE_UNIT, LIMITS } from "../engine/constants";
-import { frames, rowSegments, rowWidth } from "../engine/lattice";
+import { frames, resolveAuto, rowSegments, rowWidth } from "../engine/lattice";
 import { faceDiagrams, type Diagram } from "../engine/diagrams";
 import { closeOpenings, closeReason, openings, panelAt, togglePanel } from "../engine/panels";
 import type { Opening, PanelSpec, PanelType, RackConfig, RackRow } from "../engine/types";
 import { DEFAULT_BED, type PrinterBed } from "../engine/printer";
-import { MAX_ROW_NAME } from "../engine/url";
+import { encodeColumn, MAX_ROW_NAME } from "../engine/url";
 import { el, qs } from "./dom";
-import { isPartialUnitList, parseUnitList } from "./parse";
+import { isPartialColumnList, parseColumnList } from "./parse";
 
 const TYPE_LABEL: Record<PanelType | "open", string> = { open: "open", interfit: "inter-fit", fullcover: "full cover" };
 
@@ -65,6 +65,40 @@ function choice(type: "checkbox" | "radio", name: string, id: string, label: str
   const attrs: Record<string, string> = { type, name, id };
   if (value) attrs.value = value;
   return el("div", { class: "field inline" }, [el("input", attrs), el("label", { for: id }, [label])]);
+}
+
+function infoTrigger(): HTMLElement {
+  const btn = el("button", { type: "button", class: "cfg-info-btn", "aria-label": "Column syntax help" });
+  btn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 7v4M8 5.2v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  const tip = el("div", { class: "cfg-info-tip", hidden: "" }, [
+    el("dl", { class: "cfg-info-list" }, [
+      el("dt", {}, ["6, 10, 6"]),
+      el("dd", {}, ["column widths separated by commas"]),
+      el("dt", {}, ["-10"]),
+      el("dd", {}, ["gap — same space, no beam above"]),
+      el("dt", {}, ["_10"]),
+      el("dd", {}, ["bottom bar — forces a beam below, over a gap"]),
+      el("dt", {}, ["?"]),
+      el("dd", {}, ["auto-fill to match the row below"]),
+    ]),
+  ]);
+  document.body.append(tip);
+  const position = () => {
+    const r = btn.getBoundingClientRect();
+    tip.style.top = `${r.bottom + 6}px`;
+    tip.style.left = `${r.left}px`;
+  };
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const opening = tip.hidden;
+    tip.hidden = !tip.hidden;
+    if (opening) position();
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!btn.contains(e.target as Node) && !tip.contains(e.target as Node)) tip.hidden = true;
+  });
+  document.addEventListener("scroll", () => { tip.hidden = true; }, true);
+  return btn;
 }
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -191,12 +225,10 @@ function rowCard(draft: RowDraft, index: number): HTMLElement {
         el("input", { type: "number", name: "shift", id: id("shift"), min: "0", max, step: "1", value: String(draft.shift) }),
       ]),
       el("div", { class: "field wide" }, [
-        el("label", { for: id("columns") }, ["Column widths"]),
+        el("label", { for: id("columns") }, ["Column widths ", infoTrigger()]),
         el("input", { type: "text", name: "columns", id: id("columns"), value: draft.columns, placeholder: "e.g. 4, 4 or 6, -10, 6" }),
-        el("small", { class: "cfg-hint" }, ["A negative width is a gap: the same space, with no beam above it."]),
       ]),
     ]),
-    el("output", { class: "cfg-row-size", "data-row-size": String(index) }),
     ...(index > 0
       ? [
           el("div", { class: "field inline cfg-through" }, [
@@ -294,11 +326,30 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
 
   const draftRows = (): RackRow[] | null => {
     const rows: RackRow[] = [];
-    for (const d of drafts) {
-      const columns = parseUnitList(d.columns);
-      if (!columns) return null;
+    for (let i = 0; i < drafts.length; i++) {
+      const d = drafts[i]!;
+      const parsed = parseColumnList(d.columns);
+      if (!parsed) return null;
+      const autos = parsed.columns.flatMap((c, j) => (c === null ? [j] : []));
+      let columns: number[];
+      if (autos.length > 0) {
+        if (i === 0) return null;
+        const resolved = resolveAuto(parsed.columns, d.shift, rows[i - 1]!);
+        if (!resolved) return null;
+        columns = resolved;
+      } else {
+        columns = parsed.columns as number[];
+      }
       const name = d.name.trim();
-      rows.push({ height: d.height, columns, shift: d.shift, through: d.through, ...(name ? { name } : {}) });
+      rows.push({
+        height: d.height,
+        columns,
+        shift: d.shift,
+        through: d.through,
+        ...(parsed.bars.length > 0 ? { bars: parsed.bars } : {}),
+        ...(autos.length > 0 ? { autos } : {}),
+        ...(name ? { name } : {}),
+      });
     }
     return rows;
   };
@@ -316,7 +367,6 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     const outer = qs<HTMLElement>(form, '[data-readout="outer"]');
     const outerValue = qs<HTMLElement>(form, ".cfg-outer-value");
     if (!config) {
-      // Nothing to summarise while a row is half typed: hide the block rather than leave it empty.
       outer.hidden = true;
       return;
     }
@@ -324,10 +374,6 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     const width = Math.max(...config.rows.map((r) => r.shift + rowWidth(r)));
     const height = (frames(config).at(-1)?.z ?? 0) + 1;
     outerValue.textContent = `${width * BASE_UNIT} x ${(config.depth + 2) * BASE_UNIT} x ${height * BASE_UNIT} mm`;
-    config.rows.forEach((r, i) => {
-      const size = form.querySelector<HTMLOutputElement>(`[data-row-size="${i}"]`);
-      if (size) size.textContent = `${rowWidth(r) * BASE_UNIT} mm wide, ${(r.height + 1) * BASE_UNIT} mm per row`;
-    });
   };
 
   const renderFaces = () => {
@@ -449,7 +495,6 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     }
     if (action === "add") {
       const top = drafts[drafts.length - 1];
-      // A freshly added row opens so it can be edited right away.
       drafts.push(top ? { ...top, name: "", collapsed: false } : { height: 4, columns: "6", shift: 0, through: false, name: "", collapsed: false });
     } else if (action === "copy" && current) {
       drafts.splice(index + 1, 0, { ...current, name: "", collapsed: false });
@@ -499,19 +544,17 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     read() {
       const config = draftConfig();
       if (!config) {
-        if (drafts.some((d) => parseUnitList(d.columns) === null && isPartialUnitList(d.columns))) return { pending: true };
+        if (drafts.some((d) => parseColumnList(d.columns) === null && isPartialColumnList(d.columns))) return { pending: true };
         return { error: "column widths must be whole numbers separated by commas; a negative width is a gap" };
       }
-      // Drop panels whose opening no longer exists after a structural edit.
       const all = openings(config);
       panels = panels.filter((p) => all.some((o) => o.face === p.face && o.at === p.at && o.index === p.index));
       return { config: { ...config, panels } };
     },
     write(config) {
-      // Rows start folded so a rack of many rows stays scannable; the summary line carries the essentials.
       drafts = config.rows.map((r) => ({
         height: r.height,
-        columns: r.columns.join(", "),
+        columns: r.columns.map((_, i) => encodeColumn(r, i)).join(", "),
         shift: r.shift,
         through: r.through,
         name: r.name ?? "",

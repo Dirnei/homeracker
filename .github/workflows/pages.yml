@@ -40,9 +40,11 @@ jobs:
         with:
           scadm-source: cmd/scadm
 
-      - name: Install configurator dependencies
+      - name: Build configurator
         working-directory: configurator
-        run: npm ci
+        run: |
+          npm ci
+          npm run build
 
       - name: Build site
         working-directory: site
@@ -51,6 +53,9 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      - name: Copy configurator into site output
+        run: cp -r configurator/dist site/dist/configurator
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

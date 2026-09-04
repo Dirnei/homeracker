@@ -1,6 +1,7 @@
 import { computeBom } from "./engine/bom";
 import { defaultConfig } from "./engine/defaults";
 import { bomToMarkdown } from "./engine/markdown";
+import { resolveConfigAutos } from "./engine/lattice";
 import { buildModel } from "./engine/model";
 import { togglePanel } from "./engine/panels";
 import { unprintable, type PrinterBed } from "./engine/printer";
@@ -47,14 +48,19 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
   });
 
   const apply = (config: RackConfig): boolean => {
-    const issues = validate(config);
+    const resolved = resolveConfigAutos(config);
+    if (!resolved) {
+      showIssues(controls, ["auto-fill column (?) needs a row below and must produce a valid width"]);
+      return false;
+    }
+    const issues = validate(resolved);
     showIssues(
       controls,
       issues.map((i) => i.message),
     );
     if (issues.length > 0) return false;
     current = config;
-    const model = buildModel(config);
+    const model = buildModel(resolved);
     const bom = computeBom(model);
     const notPrintable = unprintable(bom, bed);
     const flagged = new Set(notPrintable);

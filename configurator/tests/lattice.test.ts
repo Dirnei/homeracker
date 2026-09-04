@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { frames, rowBoundaries, rowSegments, rowWidth } from "../src/engine/lattice";
+import { frames, resolveAuto, resolveConfigAutos, rowBoundaries, rowSegments, rowWidth } from "../src/engine/lattice";
 import { edgeGap, exampleA, sideBySide, stepped, uShape, uShapeStacked } from "./fixtures";
 
 describe("rowBoundaries", () => {
@@ -136,5 +136,66 @@ describe("rowSegments", () => {
 
   test("a zero-width column is a bay, like everywhere else isGap is used", () => {
     expect(rowSegments({ height: 4, columns: [6, 0, 6], shift: 0, through: false })).toEqual([{ from: 0, to: 2, left: 0, right: 15 }]);
+  });
+});
+
+describe("resolveAuto", () => {
+  const below = { height: 5, columns: [6, 10, 6], shift: 0, through: false };
+
+  test("computes the width that aligns the right edge with the row below", () => {
+    expect(resolveAuto([null], 0, below)).toEqual([24]);
+    expect(resolveAuto([null, 4], 0, below)).toEqual([19, 4]);
+    expect(resolveAuto([4, null], 0, below)).toEqual([4, 19]);
+  });
+
+  test("returns null when the computed width is out of range", () => {
+    expect(resolveAuto([4, null], 0, { height: 3, columns: [2], shift: 0, through: false })).toBeNull();
+  });
+
+  test("returns null for multiple autos", () => {
+    expect(resolveAuto([null, null], 0, below)).toBeNull();
+  });
+});
+
+describe("resolveConfigAutos", () => {
+  test("resolves auto columns using the row below", () => {
+    const config = {
+      depth: 6,
+      rows: [
+        { height: 5, columns: [6, 10, 6], shift: 0, through: false },
+        { height: 4, columns: [0], shift: 0, through: false, autos: [0] },
+      ],
+      feet: false,
+      panels: [],
+    };
+    const resolved = resolveConfigAutos(config);
+    expect(resolved?.rows[1]?.columns).toEqual([24]);
+  });
+
+  test("returns null when auto is on the bottom row", () => {
+    const config = {
+      depth: 6,
+      rows: [{ height: 5, columns: [0], shift: 0, through: false, autos: [0] }],
+      feet: false,
+      panels: [],
+    };
+    expect(resolveConfigAutos(config)).toBeNull();
+  });
+});
+
+describe("bars", () => {
+  test("a bar forces the beam back over a gap", () => {
+    const config = {
+      depth: 6,
+      rows: [
+        { height: 5, columns: [6, 10, 6], shift: 0, through: false },
+        { height: 4, columns: [6, -10, 6], shift: 0, through: false },
+        { height: 4, columns: [24], shift: 0, through: false, bars: [0] },
+      ],
+      feet: false,
+      panels: [],
+    };
+    const topFrame = frames(config)[2]!;
+    expect(topFrame.beams).toEqual([[0, 7], [7, 18], [18, 25]]);
   });
 });
