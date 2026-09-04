@@ -101,14 +101,14 @@ export function createViewCube(): ViewCube {
   const size = new Vector2();
   let hovered = -1;
 
-  const paint = (index: number) => {
-    if (hovered >= 0 && hovered !== index) {
-      materials[hovered]!.copy(rest[hovered]!);
-      materials[hovered]!.needsUpdate = true;
+  const paint = (prev: number) => {
+    if (prev >= 0 && prev !== hovered) {
+      materials[prev]!.copy(rest[prev]!);
+      materials[prev]!.needsUpdate = true;
     }
-    if (index >= 0) {
-      materials[index]!.copy(lit[index]!);
-      materials[index]!.needsUpdate = true;
+    if (hovered >= 0) {
+      materials[hovered]!.copy(lit[hovered]!);
+      materials[hovered]!.needsUpdate = true;
     }
   };
 
@@ -146,8 +146,9 @@ export function createViewCube(): ViewCube {
     setHovered(zone) {
       const index = zone ? facets.findIndex((f) => f.id === zone.id) : -1;
       if (hovered === index) return false;
+      const prev = hovered;
       hovered = index;
-      paint(index);
+      paint(prev);
       return true;
     },
 
