@@ -1,5 +1,14 @@
 export type Axis = "x" | "y" | "z";
 export type Dir = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
+
+export const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+
+export function dirVector(dir: Dir): Vec3 {
+  const sign = dir[0] === "+" ? 1 : -1;
+  const v: [number, number, number] = [0, 0, 0];
+  v[AXIS_INDEX[dir[1] as Axis]] = sign;
+  return v;
+}
 export type PanelType = "interfit" | "fullcover";
 export type Vec3 = readonly [number, number, number];
 

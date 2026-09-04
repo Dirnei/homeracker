@@ -421,15 +421,12 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     const opening = config && openings(config).find((o) => o.id === id);
     if (!config || !opening) return;
     if (closeReason(config, opening) !== null) {
-      // No standard panel fits: the only sensible click is to remove a panel that is already there.
       if (!panelAt(config, opening)) return;
       panels = closeOpenings(config, [opening], null).panels;
     } else {
       panels = togglePanel(config, opening).panels;
     }
-    renderFaces();
-    updateReadouts();
-    onChange();
+    changed();
   };
 
   const cellOf = (target: EventTarget | null) => (target as Element | null)?.closest<SVGRectElement>("rect[data-opening]") ?? null;
@@ -447,9 +444,7 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     if (!diagram) return;
     const state = all.dataset.all as PanelType | "open";
     panels = closeOpenings(config, diagram.cells.map((c) => c.opening), state === "open" ? null : state).panels;
-    renderFaces();
-    updateReadouts();
-    onChange();
+    changed();
   });
   faces.addEventListener("keydown", (event) => {
     const cell = cellOf(event.target);
@@ -495,7 +490,7 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
     }
     if (action === "add") {
       const top = drafts[drafts.length - 1];
-      drafts.push(top ? { ...top, name: "", collapsed: false } : { height: 4, columns: "6", shift: 0, through: false, name: "", collapsed: false });
+      drafts.push(top ? { ...top, name: "", collapsed: false, through: false } : { height: 4, columns: "6", shift: 0, through: false, name: "", collapsed: false });
     } else if (action === "copy" && current) {
       drafts.splice(index + 1, 0, { ...current, name: "", collapsed: false });
       panels = remapPanels(panels, "insert", index + 1);
@@ -548,8 +543,8 @@ export function renderForm(root: HTMLElement, onChange: () => void, options: For
         return { error: "column widths must be whole numbers separated by commas; a negative width is a gap" };
       }
       const all = openings(config);
-      panels = panels.filter((p) => all.some((o) => o.face === p.face && o.at === p.at && o.index === p.index));
-      return { config: { ...config, panels } };
+      const live = panels.filter((p) => all.some((o) => o.face === p.face && o.at === p.at && o.index === p.index));
+      return { config: { ...config, panels: live } };
     },
     write(config) {
       drafts = config.rows.map((r) => ({

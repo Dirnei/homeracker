@@ -1,9 +1,7 @@
 import { LIMITS } from "./constants";
 import { frames, isGap, rowBoundaries } from "./lattice";
 import { buildPanels, openings } from "./panels";
-import type { Axis, Dir, RackConfig, RackModel, RackNode, RackProblem, RackSupport, Vec3 } from "./types";
-
-const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+import { AXIS_INDEX, type Axis, type Dir, type RackConfig, type RackModel, type RackNode, type RackProblem, type RackSupport, type Vec3 } from "./types";
 
 export function nodeId(pos: Vec3): string {
   return `n:${pos[0]},${pos[1]},${pos[2]}`;

@@ -102,10 +102,14 @@ export function createViewCube(): ViewCube {
   let hovered = -1;
 
   const paint = (index: number) => {
-    facets.forEach((_, i) => {
-      materials[i]!.copy(i === index ? lit[i]! : rest[i]!);
-      materials[i]!.needsUpdate = true;
-    });
+    if (hovered >= 0 && hovered !== index) {
+      materials[hovered]!.copy(rest[hovered]!);
+      materials[hovered]!.needsUpdate = true;
+    }
+    if (index >= 0) {
+      materials[index]!.copy(lit[index]!);
+      materials[index]!.needsUpdate = true;
+    }
   };
 
   return {

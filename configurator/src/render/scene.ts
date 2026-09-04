@@ -217,22 +217,27 @@ export function createViewer(canvas: HTMLCanvasElement, options: ViewerOptions =
     render();
   };
 
+  const ac = new AbortController();
   window.addEventListener("keydown", (event) => {
     if (event.key.toLowerCase() !== "b" || event.metaKey || event.ctrlKey || event.altKey) return;
     const focused = document.activeElement as HTMLElement | null;
-    // Never fire while someone is typing a row name or a number.
     if (focused && (focused.tagName === "INPUT" || focused.tagName === "TEXTAREA" || focused.isContentEditable)) return;
     toggleReference();
-  });
+  }, { signal: ac.signal });
 
   const cubeZoneAt = (event: PointerEvent): CubeZone | null => {
     const rect = canvas.getBoundingClientRect();
     return cube.hitTest(event.clientX - rect.left, event.clientY - rect.top, rect.width);
   };
 
+  let prevWidth = 0;
+  let prevHeight = 0;
   const resize = () => {
     const { clientWidth, clientHeight } = canvas;
     if (clientWidth === 0 || clientHeight === 0) return;
+    if (clientWidth === prevWidth && clientHeight === prevHeight) return;
+    prevWidth = clientWidth;
+    prevHeight = clientHeight;
     renderer.setSize(clientWidth, clientHeight, false);
     camera.aspect = clientWidth / clientHeight;
     camera.updateProjectionMatrix();

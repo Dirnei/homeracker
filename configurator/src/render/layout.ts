@@ -1,4 +1,4 @@
-import type { Axis, Dir, RackModel, RackPanel, Vec3 } from "../engine/types";
+import { AXIS_INDEX, dirVector, type Axis, type RackModel, type RackPanel, type Vec3 } from "../engine/types";
 
 export type BoxKind = "support" | "core" | "core-pullthrough" | "arm" | "foot" | "panel";
 
@@ -10,17 +10,9 @@ export interface Box {
   key?: string;
 }
 
-const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
 const ARM_INSET = 0.9;
 const PANEL_THICKNESS = 0.15;
 const FOOT_SIZE: Vec3 = [1.3, 1.3, 0.2];
-
-function dirVector(dir: Dir): Vec3 {
-  const sign = dir[0] === "+" ? 1 : -1;
-  const v: [number, number, number] = [0, 0, 0];
-  v[AXIS_INDEX[dir[1] as Axis]] = sign;
-  return v;
-}
 
 function cellCenter(pos: Vec3): Vec3 {
   return [pos[0] + 0.5, pos[1] + 0.5, pos[2] + 0.5];
@@ -43,7 +35,10 @@ function panelBox(panel: RackPanel): Box {
     center[i] = panel.origin[i] + 1 + span / 2;
     size[i] = span;
   });
-  return { kind: "panel", center, size };
+  const key = panel.blocked
+    ? `panel:${panel.unitsX}x${panel.unitsY}:${panel.type}:blocked`
+    : `panel:${panel.unitsX}x${panel.unitsY}:${panel.type}`;
+  return { kind: "panel", center, size, key };
 }
 
 export function rackBoxes(model: RackModel): Box[] {
@@ -74,6 +69,6 @@ export function rackBoxes(model: RackModel): Box[] {
     }
   }
 
-  for (const p of model.panels) boxes.push({ ...panelBox(p), ...(p.blocked ? { key: "panel:blocked" } : {}) });
+  for (const p of model.panels) boxes.push(panelBox(p));
   return boxes;
 }

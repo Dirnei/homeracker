@@ -1,4 +1,4 @@
-import type { Axis, Dir } from "./types";
+import { AXIS_INDEX, type Axis, type Dir } from "./types";
 
 /** Canonical arm sets of every connector type, in the order of CONNECTOR_CONFIGS in connector.scad. */
 export const CANONICAL_ARMS = {
@@ -22,7 +22,7 @@ const AXES: Axis[] = ["x", "y", "z"];
 
 function vectorOf(dir: Dir): number[] {
   const v = [0, 0, 0];
-  v[AXES.indexOf(dir[1] as Axis)] = dir[0] === "+" ? 1 : -1;
+  v[AXIS_INDEX[dir[1] as Axis]] = dir[0] === "+" ? 1 : -1;
   return v;
 }
 
@@ -87,20 +87,30 @@ export interface ConnectorOrientation {
   variant: Axis | "none";
 }
 
+const orientCache = new Map<string, ConnectorOrientation>();
+
 /** Rotation (and mesh variant) that maps the canonical connector onto a node's arms and pull-through axis. */
 export function orientConnector(arms: ReadonlySet<Dir>, pull: Axis | "none"): ConnectorOrientation {
+  const sorted = [...arms].sort();
+  const cacheKey = `${sorted.join(",")}:${pull}`;
+  const cached = orientCache.get(cacheKey);
+  if (cached) return cached;
   const label = connectorLabelOf(arms);
   const canonical = CANONICAL_ARMS[label];
-  if (!canonical) throw new Error(`no connector for arms ${[...arms].join(",")}`);
+  if (!canonical) throw new Error(`no connector for arms ${sorted.join(",")}`);
   const variants: (Axis | "none")[] = pull === "none" ? ["none"] : canonicalPullAxes(label);
   for (const rotation of ROTATIONS) {
     const rotated = new Set(canonical.map((d) => applyRotation(rotation, d)));
     if (rotated.size !== arms.size || [...arms].some((d) => !rotated.has(d))) continue;
     for (const variant of variants) {
-      if (variant === "none" || applyRotation(rotation, `+${variant}`)[1] === pull) return { rotation, variant };
+      if (variant === "none" || applyRotation(rotation, `+${variant}`)[1] === pull) {
+        const result = { rotation, variant };
+        orientCache.set(cacheKey, result);
+        return result;
+      }
     }
   }
-  throw new Error(`no rotation maps ${label} onto ${[...arms].join(",")} with pull-through ${pull}`);
+  throw new Error(`no rotation maps ${label} onto ${sorted.join(",")} with pull-through ${pull}`);
 }
 
 export function rotationFor(arms: ReadonlySet<Dir>, pull: Axis | "none"): Rotation {

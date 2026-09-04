@@ -1,6 +1,5 @@
 import { closeFace } from "./panels";
 import type { FaceGroup, PanelFace, PanelSpec, PanelType, RackConfig, RackRow } from "./types";
-import { parseOneColumn } from "../ui/parse";
 
 const FACE_CODE: Record<PanelFace, string> = { front: "f", back: "b", left: "l", right: "r", horizontal: "h" };
 const GROUPS_V2: FaceGroup[] = ["front", "back", "left", "right", "top", "bottom"];
@@ -28,9 +27,13 @@ function integer(value: string | undefined): number | null {
 
 function decodeColumn(value: string | undefined) {
   if (value === undefined) return null;
-  const parsed = parseOneColumn(value);
-  if (!parsed) return null;
-  return { width: parsed.width ?? 0, bar: parsed.bar, auto: parsed.width === null };
+  const match = /^(_?)(\?|-?\d+)$/.exec(value);
+  if (!match) return null;
+  const bar = match[1] === "_";
+  if (match[2] === "?") return { width: 0, bar, auto: true };
+  const width = Number(match[2]);
+  if (bar && width < 0) return null;
+  return { width, bar, auto: false };
 }
 
 export function encodeColumn(row: RackRow, i: number): string {

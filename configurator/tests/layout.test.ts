@@ -62,8 +62,8 @@ describe("rackBoxes", () => {
     const model = buildModel(closeFace(closeFace(exampleA, "front", "interfit"), "top", "fullcover"));
     const panels = ofKind(rackBoxes(model), "panel");
     const front = panels.find((b) => b.size[0] === 6 && b.size[2] === 5);
-    expect(front).toEqual({ kind: "panel", center: [4, 0.075, 3.5], size: [6, 0.15, 5] });
+    expect(front).toEqual({ kind: "panel", center: [4, 0.075, 3.5], size: [6, 0.15, 5], key: "panel:6x5:interfit" });
     const top = panels.find((b) => b.size[2] === 0.15);
-    expect(top).toEqual({ kind: "panel", center: [4, 4, 12.075], size: [6, 6, 0.15] });
+    expect(top).toEqual({ kind: "panel", center: [4, 4, 12.075], size: [6, 6, 0.15], key: "panel:6x6:fullcover" });
   });
 });
