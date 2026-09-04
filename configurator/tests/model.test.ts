@@ -151,10 +151,8 @@ describe("buildModel columns", () => {
 });
 
 describe("disconnected racks", () => {
-  test("a U standing on the floor is two separate racks", () => {
-    const { problems } = buildModel(bottomU);
-    expect(problems.map((p) => p.message)).toEqual(["the rack falls into 2 separate parts; nothing joins them"]);
-    expect(problems[0]?.rows).toEqual([0]);
+  test("a U standing on the floor is one connected rack", () => {
+    expect(buildModel(bottomU).problems).toEqual([]);
   });
 
   test("a U carried by a row that spans its gap is one rack", () => {

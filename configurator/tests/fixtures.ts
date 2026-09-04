@@ -74,7 +74,7 @@ export const uShape: RackConfig = {
   panels: [],
 };
 
-/** The same U row standing on the floor: nothing spans under its gap. */
+/** The same U shape as the first row: the floor beam bridges under the gap. */
 export const bottomU: RackConfig = {
   depth: 6,
   rows: [row(4, [6, -10, 6])],

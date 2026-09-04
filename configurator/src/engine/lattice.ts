@@ -134,7 +134,7 @@ export function frames(config: RackConfig): Frame[] {
       // A gap stays open to the sky unless the row above forces a bottom bar on the column there.
       if (under === "gap" && !hasBar(above, ...span)) continue;
       // Under a gap the beam survives only where a bay of the row below spans the same place.
-      if (over === "gap" && under !== "bay") continue;
+      if (over === "gap" && under !== "bay" && below) continue;
       // Where neither row reaches, the beam stays: it is what bridges rows standing side by side.
       beams.push(span);
     }
