@@ -17,6 +17,7 @@ export default defineConfig({
     processor: unified({ rehypePlugins: [rehypeRepoLinks, rehypeSections] }),
   },
   vite: {
+    resolve: { dedupe: ["three"] },
     server: { fs: { allow: [".."] } },
   },
 });
