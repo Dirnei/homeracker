@@ -63,20 +63,6 @@
       "separateMajorMinor": false,
       "schedule": ["before 5am on the first day of the month"],
       "automerge": true
-    },
-    {
-      "matchPackageNames": ["three", "@types/three"],
-      "groupName": "three",
-      "groupSlug": "three"
-    },
-    {
-      "matchUpdateTypes": ["patch"],
-      "automerge": true
-    },
-    {
-      "matchUpdateTypes": ["minor"],
-      "excludePackageNames": ["three", "@types/three"],
-      "automerge": true
     }
   ]
 }
