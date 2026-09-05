@@ -6,6 +6,7 @@ export default defineConfig({
   publicDir: "../site/public",
   build: {
     outDir: "dist",
+    copyPublicDir: false,
     chunkSizeWarningLimit: 800,
   },
   test: {

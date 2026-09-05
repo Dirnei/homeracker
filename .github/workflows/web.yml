@@ -6,6 +6,7 @@ on:
     paths:
       - 'configurator/**'
       - 'site/**'
+      - 'models/**/*.scad'
       - 'README.md'
       - 'models/**/README.md'
       - '.github/workflows/web.yml'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'configurator/**'
       - 'site/**'
+      - 'models/**/*.scad'
 
 jobs:
   configurator:

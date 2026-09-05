@@ -31,20 +31,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            site/package-lock.json
-            configurator/package-lock.json
+          cache-dependency-path: site/package-lock.json
 
       - name: Setup OpenSCAD
         uses: ./.github/actions/setup-openscad
         with:
           scadm-source: cmd/scadm
-
-      - name: Build configurator
-        working-directory: configurator
-        run: |
-          npm ci
-          npm run build
 
       - name: Build site
         working-directory: site
@@ -53,9 +45,6 @@ jobs:
         run: |
           npm ci
           npm run build
-
-      - name: Copy configurator into site output
-        run: cp -r configurator/dist site/dist/configurator
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

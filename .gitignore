@@ -44,9 +44,3 @@ configurator/dist/
 site/dist/
 site/public/parts/
 _site/
-
-# Superpowers SDD scratch (ledger, briefs, review packages)
-.superpowers/
-
-# Superpowers design and plan documents: kept locally, not part of the repo
-docs/superpowers/
