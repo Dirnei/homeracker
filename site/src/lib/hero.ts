@@ -31,6 +31,8 @@ interface Part {
   mesh: Mesh;
   rest: Vector3;
   explode: Vector3;
+  /** Window [start, end] within the global 0..1 explosion timeline. */
+  window: [number, number];
 }
 
 const COLORS = { support: "#f7b600", connector: "#0056b3", lockpin: "#333333" } as const;
@@ -59,10 +61,11 @@ function buildCube(geometries: Record<Kind, BufferGeometry>): Part[] {
     support: material(COLORS.support),
     lockpin: material(COLORS.lockpin),
   };
+  const WINDOW: Record<Kind, [number, number]> = { lockpin: [0, 0.35], connector: [0.5, 1], support: [0.5, 1] };
   const add = (kind: Kind, rest: Vector3, rotation: Quaternion, explode: Vector3) => {
     const mesh = new Mesh(geometries[kind], materials[kind]);
     mesh.quaternion.copy(rotation);
-    parts.push({ mesh, rest, explode });
+    parts.push({ mesh, rest, explode, window: WINDOW[kind] });
   };
   const outward = (p: Vector3) => p.clone().sub(CENTER).normalize();
 
@@ -166,7 +169,9 @@ function mountExplodedCube(canvas: HTMLCanvasElement, parts: Part[]): void {
 
   const place = (explosion: number) => {
     for (const part of parts) {
-      part.mesh.position.copy(part.rest).sub(CENTER).addScaledVector(part.explode, explosion);
+      const [a, b] = part.window;
+      const local = Math.min(Math.max((explosion - a) / (b - a), 0), 1);
+      part.mesh.position.copy(part.rest).sub(CENTER).addScaledVector(part.explode, local);
     }
   };
 

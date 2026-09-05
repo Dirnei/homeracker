@@ -784,3 +784,22 @@
   background: rgba(255, 77, 106, 0.1);
   font-size: 0.9rem;
 }
+
+.cfg-credit {
+  margin-top: 1.5rem;
+  padding: 0.8rem 0 0.2rem;
+  border-top: 1px solid var(--cfg-line);
+  font-family: var(--cfg-label);
+  font-size: 0.75rem;
+  color: var(--cfg-muted);
+  text-align: center;
+}
+
+.cfg-credit a {
+  color: var(--cfg-accent);
+  text-decoration: none;
+}
+
+.cfg-credit a:hover {
+  text-decoration: underline;
+}

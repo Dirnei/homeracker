@@ -102,6 +102,11 @@ export function mountConfigurator(root: HTMLElement, options: ConfiguratorOption
     { onHover: (opening) => viewer.highlight(opening?.id ?? null) },
   );
 
+  const credit = el("footer", { class: "cfg-credit" });
+  credit.innerHTML =
+    'Configurator created by <a href="https://ko-fi.com/dirnei" target="_blank" rel="noopener">Dirnei</a>';
+  controls.appendChild(credit);
+
   form.writeBed(bed);
   // A link someone shared always wins; otherwise pick up where this tab left off.
   const initial = readHash() ?? loadRack() ?? defaultConfig();
